@@ -374,7 +374,8 @@ namespace mongo {
         RocksIndexBase* index;
         if (desc->unique()) {
             index = new RocksUniqueIndex(_db.get(), _getIdentPrefix(ident), ident.toString(),
-                                         Ordering::make(desc->keyPattern()));
+                                         Ordering::make(desc->keyPattern()), desc->parentNS(),
+                                         desc->indexName());
         } else {
             auto si = new RocksStandardIndex(_db.get(), _getIdentPrefix(ident), ident.toString(),
                                              Ordering::make(desc->keyPattern()));
