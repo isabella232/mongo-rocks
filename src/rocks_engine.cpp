@@ -157,6 +157,8 @@ namespace mongo {
                 return _droppedCache;
             }
 
+            virtual bool IgnoreSnapshots() const override { return true; }
+
             virtual const char* Name() const { return "PrefixDeletingCompactionFilter"; }
 
         private:
