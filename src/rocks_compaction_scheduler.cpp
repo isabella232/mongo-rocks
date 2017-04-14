@@ -209,7 +209,7 @@ namespace mongo {
             }
         }
         lk.unlock();
-        LOG(1) << "compaction thread terminating" << std::endl;
+        LOG(1) << "Compaction thread terminating" << std::endl;
     }
 
     void CompactionBackgroundJob::scheduleCompactOp(const std::string& begin,
@@ -228,7 +228,7 @@ namespace mongo {
         rocksdb::Slice* start = !op._start_str.empty() ? &start_slice : nullptr;
         rocksdb::Slice* end = !op._end_str.empty() ? &end_slice : nullptr;
 
-        LOG(1) << "starting compaction of range: "
+        LOG(1) << "Starting compaction of range: "
               << (start ? start->ToString(true) : "<begin>") << " .. "
               << (end ? end->ToString(true) : "<end>")
               << " (rangeDropped is " << op._rangeDropped << ")";
@@ -236,7 +236,7 @@ namespace mongo {
         if (op._rangeDropped) {
             auto s = rocksdb::DeleteFilesInRange(_db, _db->DefaultColumnFamily(), start, end);
             if (!s.ok()) {
-                log() << "failed to delete files in range: " << s.ToString();
+                log() << "Failed to delete files in compacted range: " << s.ToString();
             }
         }
 
@@ -245,7 +245,7 @@ namespace mongo {
         compact_options.exclusive_manual_compaction = false;
         auto s = _db->CompactRange(compact_options, start, end);
         if (!s.ok()) {
-            log() << "failed to compact range: " << s.ToString();
+            log() << "Failed to compact range: " << s.ToString();
         }
 
         _compactionScheduler->notifyCompacted(op._start_str, op._end_str, op._rangeDropped, s.ok());
@@ -335,7 +335,7 @@ namespace mongo {
                 stdx::lock_guard<stdx::mutex> lk(_droppedPrefixesMutex);
                 _droppedPrefixes.insert(int_prefix);
             }
-            LOG(1) << "compacting dropped prefix: " << prefix.ToString(true);
+            LOG(1) << "Compacting dropped prefix: " << prefix.ToString(true);
             compactDroppedPrefix(prefix.ToString());
         }
         log() << dropped_count << " dropped prefixes need compaction";
