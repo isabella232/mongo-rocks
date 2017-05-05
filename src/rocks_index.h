@@ -94,7 +94,8 @@ namespace mongo {
     class RocksUniqueIndex : public RocksIndexBase {
     public:
         RocksUniqueIndex(rocksdb::DB* db, std::string prefix, std::string ident, Ordering order,
-                         std::string collectionNamespace, std::string indexName);
+                         std::string collectionNamespace, std::string indexName,
+                         bool partial = false);
 
         virtual Status insert(OperationContext* txn, const BSONObj& key, const RecordId& loc,
                               bool dupsAllowed);
@@ -110,6 +111,7 @@ namespace mongo {
     private:
         std::string _collectionNamespace;
         std::string _indexName;
+        const bool _partial;
     };
 
     class RocksStandardIndex : public RocksIndexBase {
