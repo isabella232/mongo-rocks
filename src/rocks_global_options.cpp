@@ -80,7 +80,7 @@ namespace mongo {
                                "rocksdbCounters",
                                moe::Bool,
                                "If true, we will turn on RocksDB's advanced counters")
-            .setDefault(moe::Value(true));
+            .setDefault(moe::Value(false));
         rocksOptions
             .addOptionChaining("storage.rocksdb.singleDeleteIndex",
                                "rocksdbSingleDeleteIndex", moe::Bool,
