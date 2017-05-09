@@ -38,6 +38,7 @@
 
 #include <boost/filesystem/operations.hpp>
 
+#include <rocksdb/version.h>
 #include <rocksdb/cache.h>
 #include <rocksdb/compaction_filter.h>
 #include <rocksdb/comparator.h>
@@ -54,6 +55,7 @@
 
 #include "mongo/db/client.h"
 #include "mongo/db/catalog/collection_options.h"
+#include "mongo/db/concurrency/locker.h"
 #include "mongo/db/index/index_descriptor.h"
 #include "mongo/db/namespace_string.h"
 #include "mongo/db/operation_context.h"
@@ -157,7 +159,10 @@ namespace mongo {
                 return _droppedCache;
             }
 
+            // IgnoreSnapshots is available since RocksDB 4.3
+#if defined(ROCKSDB_MAJOR) && (ROCKSDB_MAJOR > 4 || (ROCKSDB_MAJOR == 4 && ROCKSDB_MINOR >= 3))
             virtual bool IgnoreSnapshots() const override { return true; }
+#endif
 
             virtual const char* Name() const { return "PrefixDeletingCompactionFilter"; }
 
@@ -191,6 +196,50 @@ namespace mongo {
         private:
             const RocksEngine* _engine;
         };
+
+        // ServerParameter to limit concurrency, to prevent thousands of threads running
+        // concurrent searches and thus blocking the entire DB.
+        class RocksTicketServerParameter : public ServerParameter {
+            MONGO_DISALLOW_COPYING(RocksTicketServerParameter);
+
+        public:
+            RocksTicketServerParameter(TicketHolder* holder, const std::string& name)
+                : ServerParameter(ServerParameterSet::getGlobal(), name, true, true), _holder(holder) {};
+            virtual void append(OperationContext* txn, BSONObjBuilder& b, const std::string& name) {
+                b.append(name, _holder->outof());
+            }
+            virtual Status set(const BSONElement& newValueElement) {
+                if (!newValueElement.isNumber())
+                    return Status(ErrorCodes::BadValue, str::stream() << name() << " has to be a number");
+                return _set(newValueElement.numberInt());
+            }
+            virtual Status setFromString(const std::string& str) {
+                int num = 0;
+                Status status = parseNumberFromString(str, &num);
+                if (!status.isOK())
+                    return status;
+                return _set(num);
+            }
+
+        private:
+            Status _set(int newNum) {
+                if (newNum <= 0) {
+                    return Status(ErrorCodes::BadValue, str::stream() << name() << " has to be > 0");
+                }
+
+                return _holder->resize(newNum);
+            }
+
+            TicketHolder* _holder;
+        };
+
+        TicketHolder openWriteTransaction(128);
+        RocksTicketServerParameter openWriteTransactionParam(&openWriteTransaction,
+                                                        "rocksdbConcurrentWriteTransactions");
+
+        TicketHolder openReadTransaction(128);
+        RocksTicketServerParameter openReadTransactionParam(&openReadTransaction,
+                                                       "rocksdbConcurrentReadTransactions");
 
     }  // anonymous namespace
 
@@ -321,9 +370,30 @@ namespace mongo {
             _journalFlusher = stdx::make_unique<RocksJournalFlusher>(_durabilityManager.get());
             _journalFlusher->go();
         }
+
+        Locker::setGlobalThrottling(&openReadTransaction, &openWriteTransaction);
     }
 
     RocksEngine::~RocksEngine() { cleanShutdown(); }
+
+    void RocksEngine::appendGlobalStats(BSONObjBuilder& b) {
+        BSONObjBuilder bb(b.subobjStart("concurrentTransactions"));
+        {
+            BSONObjBuilder bbb(bb.subobjStart("write"));
+            bbb.append("out", openWriteTransaction.used());
+            bbb.append("available", openWriteTransaction.available());
+            bbb.append("totalTickets", openWriteTransaction.outof());
+            bbb.done();
+        }
+        {
+            BSONObjBuilder bbb(bb.subobjStart("read"));
+            bbb.append("out", openReadTransaction.used());
+            bbb.append("available", openReadTransaction.available());
+            bbb.append("totalTickets", openReadTransaction.outof());
+            bbb.done();
+        }
+        bb.done();
+    }
 
     RecoveryUnit* RocksEngine::newRecoveryUnit() {
         return new RocksRecoveryUnit(&_transactionEngine, &_snapshotManager, _db.get(),
@@ -386,7 +456,7 @@ namespace mongo {
         if (desc->unique()) {
             index = new RocksUniqueIndex(_db.get(), _getIdentPrefix(ident), ident.toString(),
                                          Ordering::make(desc->keyPattern()), desc->parentNS(),
-                                         desc->indexName());
+                                         desc->indexName(), desc->isPartial());
         } else {
             auto si = new RocksStandardIndex(_db.get(), _getIdentPrefix(ident), ident.toString(),
                                              Ordering::make(desc->keyPattern()));
