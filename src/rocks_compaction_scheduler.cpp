@@ -289,6 +289,7 @@ namespace mongo {
         _db = db;
         _timer.reset();
         _compactionJob.reset(new CompactionBackgroundJob(db, this));
+        _prefixLoader = stdx::thread(&RocksCompactionScheduler::loadDroppedPrefixes, this);
     }
 
     void RocksCompactionScheduler::reportSkippedDeletionsAboveThreshold(const std::string& prefix) {
@@ -309,6 +310,10 @@ namespace mongo {
     }
 
     RocksCompactionScheduler::~RocksCompactionScheduler() {
+        // Wait on prefix loads even if quitting
+        if (_prefixLoader.joinable()) {
+            _prefixLoader.join();
+        }
         // We need this to avoid incomplete type deletion
         _compactionJob.reset();
     }
@@ -346,8 +351,8 @@ namespace mongo {
         return _droppedPrefixes;
     }
 
-    void RocksCompactionScheduler::loadDroppedPrefixes(rocksdb::Iterator* iter) {
-        invariant(iter);
+    void RocksCompactionScheduler::loadDroppedPrefixes() {
+        std::unique_ptr<rocksdb::Iterator> iter(_db->NewIterator(rocksdb::ReadOptions()));
         const uint32_t rocksdbSkippedDeletionsInitial =
             rocksdb::perf_context.internal_delete_skipped_count;
         int dropped_count = 0;

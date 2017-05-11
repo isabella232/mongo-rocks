@@ -260,7 +260,6 @@ namespace mongo {
 
         // start compaction thread and load dropped prefixes
         _compactionScheduler->start(_db.get());
-        _compactionScheduler->loadDroppedPrefixes(iter.get());
 
         _durabilityManager.reset(new RocksDurabilityManager(_db.get(), _durable));
 

@@ -37,6 +37,7 @@
 
 #include "mongo/base/status.h"
 #include "mongo/stdx/mutex.h"
+#include "mongo/stdx/thread.h"
 #include "mongo/util/timer.h"
 
 namespace rocksdb {
@@ -68,7 +69,6 @@ namespace mongo {
 
         rocksdb::CompactionFilterFactory* createCompactionFilterFactory() const;
         std::unordered_set<uint32_t> getDroppedPrefixes() const;
-        void loadDroppedPrefixes(rocksdb::Iterator* iter);
         Status dropPrefixesAtomic(const std::vector<std::string>& prefixesToDrop,
                                   const rocksdb::WriteOptions& syncOptions,
                                   rocksdb::WriteBatch& wb);
@@ -76,6 +76,7 @@ namespace mongo {
                              bool opSucceeded);
 
     private:
+        void loadDroppedPrefixes();
         void compactPrefix(const std::string& prefix);
         void compactDroppedPrefix(const std::string& prefix);
         void compact(const std::string& begin, const std::string& end, bool rangeDropped,
@@ -83,6 +84,7 @@ namespace mongo {
         void droppedPrefixCompacted(const std::string& prefix, bool opSucceeded);
 
     private:
+        stdx::thread _prefixLoader;
         stdx::mutex _lock;
         // protected by _lock
         Timer _timer;
