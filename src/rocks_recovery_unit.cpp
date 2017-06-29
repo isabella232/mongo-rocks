@@ -171,14 +171,13 @@ namespace mongo {
                 if (rocksdb::GetPerfLevel() == rocksdb::PerfLevel::kDisable) {
                     rocksdb::SetPerfLevel(rocksdb::kEnableCount);
                 }
-                _rocksdbSkippedDeletionsInitial =
-                    rocksdb::perf_context.internal_delete_skipped_count;
+                _rocksdbSkippedDeletionsInitial = get_internal_delete_skipped_count();
             }
             void endOp() {
                 if (_compactionScheduler == nullptr) {
                     return;
                 }
-                int skippedDeletionsOp = rocksdb::perf_context.internal_delete_skipped_count -
+                int skippedDeletionsOp = get_internal_delete_skipped_count() -
                                          _rocksdbSkippedDeletionsInitial;
                 if (skippedDeletionsOp >=
                     RocksCompactionScheduler::getSkippedDeletionsThreshold()) {
