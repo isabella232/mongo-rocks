@@ -28,7 +28,6 @@
  */
 
 #include <memory>
-#include <regex>
 #include <sstream>
 
 #include "mongo/platform/basic.h"
@@ -41,6 +40,7 @@
 
 #include "mongo/base/checked_cast.h"
 #include "mongo/bson/bsonobjbuilder.h"
+#include "mongo/stdx/regex.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/scopeguard.h"
 
@@ -118,15 +118,15 @@ namespace mongo {
                 if (!_current_subobj) {
                     _current_subobj.reset(new BSONObjBuilder(_bob->subobjStart("level-stats")));
                 }
-                static std::regex rex(
+                static stdx::regex rex(
                     "\\s*(\\w+)\\s+(\\d+)/(\\d+)\\s+(\\d+\\.\\d+)\\s+(\\d+\\.\\d+)" // "  L7      7/4     423.33   0.0"
                     "\\s+(\\d+\\.\\d+)\\s+(\\d+\\.\\d+)\\s+(\\d+\\.\\d+)\\s+(\\d+\\.\\d+)" // "      0.0     0.0      0.0       0.0"
                     "\\s+(\\d+\\.\\d+)\\s+(\\d+\\.\\d+)\\s+(\\d+\\.\\d+)\\s+(\\d+\\.\\d+)" // "      0.0       0.0   0.0      0.0"
                     "\\s+(\\d+\\.\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+\\.\\d+)" // "      0.0         0         0    0.000"
                     "\\s+(\\d+[KMG]?)\\s+(\\d+[KMG]?)" // "       0      0"
                     );
-                std::smatch mr;
-                if (!std::regex_match(line, mr, rex)) {
+                stdx::smatch mr;
+                if (!stdx::regex_match(line, mr, rex)) {
                     error(line);
                     return;
                 }
@@ -162,9 +162,9 @@ namespace mongo {
 
             // "Flush(GB): cumulative 0.000, interval 0.000",
             void parseCompactionStatsFlush(const std::string& line) {
-                static std::regex rex("Flush\\(GB\\): cumulative (\\d+\\.\\d+), interval (\\d+\\.\\d+)");
-                std::smatch mr;
-                if (!std::regex_match(line, mr, rex)) {
+                static stdx::regex rex("Flush\\(GB\\): cumulative (\\d+\\.\\d+), interval (\\d+\\.\\d+)");
+                stdx::smatch mr;
+                if (!stdx::regex_match(line, mr, rex)) {
                     error(line);
                     return;
                 }
@@ -180,11 +180,11 @@ namespace mongo {
                 // so we need to locally override _bob variable to put these values
                 // into Compaction section and match rocksdb 4.13+ structure
                 BSONObjBuilder* _bob = &_compstats;
-                static std::regex rex("Cumulative compaction: "
+                static stdx::regex rex("Cumulative compaction: "
                                       "(\\d+\\.\\d+) GB write, (\\d+\\.\\d+) MB/s write, "
                                       "(\\d+\\.\\d+) GB read, (\\d+\\.\\d+) MB/s read, (\\d+\\.\\d+) seconds");
-                std::smatch mr;
-                if (!std::regex_match(line, mr, rex)) {
+                stdx::smatch mr;
+                if (!stdx::regex_match(line, mr, rex)) {
                     error(line);
                     return;
                 }
@@ -203,11 +203,11 @@ namespace mongo {
                 // so we need to locally override _bob variable to put these values
                 // into Compaction section and match rocksdb 4.13+ structure
                 BSONObjBuilder* _bob = &_compstats;
-                static std::regex rex("Interval compaction: "
+                static stdx::regex rex("Interval compaction: "
                                       "(\\d+\\.\\d+) GB write, (\\d+\\.\\d+) MB/s write, "
                                       "(\\d+\\.\\d+) GB read, (\\d+\\.\\d+) MB/s read, (\\d+\\.\\d+) seconds");
-                std::smatch mr;
-                if (!std::regex_match(line, mr, rex)) {
+                stdx::smatch mr;
+                if (!stdx::regex_match(line, mr, rex)) {
                     error(line);
                     return;
                 }
@@ -223,13 +223,13 @@ namespace mongo {
             // "Stalls(count): 0 level0_slowdown, 0 level0_slowdown_with_compaction, 0 level0_numfiles, 0 level0_numfiles_with_compaction, 0 stop for pending_compaction_bytes, 0 slowdown for pending_compaction_bytes, 0 memtable_compaction, 0 memtable_slowdown, interval 0 total count",
             // "",
             void parseCompactionStatsStalls(const std::string& line) {
-                static std::regex rex("Stalls\\(count\\): "
+                static stdx::regex rex("Stalls\\(count\\): "
                                       "(\\d+) level0_slowdown, (\\d+) level0_slowdown_with_compaction, "
                                       "(\\d+) level0_numfiles, (\\d+) level0_numfiles_with_compaction, "
                                       "(\\d+) stop for pending_compaction_bytes, (\\d+) slowdown for pending_compaction_bytes, "
                                       "(\\d+) memtable_compaction, (\\d+) memtable_slowdown, interval (\\d+) total count");
-                std::smatch mr;
-                if (!std::regex_match(line, mr, rex)) {
+                stdx::smatch mr;
+                if (!stdx::regex_match(line, mr, rex)) {
                     error(line);
                     return;
                 }
@@ -256,9 +256,9 @@ namespace mongo {
 
             // "Uptime(secs): 2.3 total, 0.3 interval",
             void parseDBStatsUptime(const std::string& line) {
-                static std::regex rex("Uptime\\(secs\\): (\\d+\\.\\d+) total, (\\d+\\.\\d+) interval");
-                std::smatch mr;
-                if (!std::regex_match(line, mr, rex)) {
+                static stdx::regex rex("Uptime\\(secs\\): (\\d+\\.\\d+) total, (\\d+\\.\\d+) interval");
+                stdx::smatch mr;
+                if (!stdx::regex_match(line, mr, rex)) {
                     error(line);
                     return;
                 }
@@ -270,11 +270,11 @@ namespace mongo {
 
             // "Cumulative writes: 1 writes, 2 keys, 1 batches, 0.5 writes per batch, ingest: 0.00 GB, 0.00 MB/s",
             void parseDBStatsCumulativeWrites(const std::string& line) {
-                static std::regex rex("Cumulative writes: "
+                static stdx::regex rex("Cumulative writes: "
                                       "(\\d+[KMG]?) writes, (\\d+[KMG]?) keys, (\\d+[KMG]?) batches, "
                                       "(\\d+\\.\\d+) writes per batch, ingest: (\\d+\\.\\d+) GB, (\\d+\\.\\d+) MB/s");
-                std::smatch mr;
-                if (!std::regex_match(line, mr, rex)) {
+                stdx::smatch mr;
+                if (!stdx::regex_match(line, mr, rex)) {
                     error(line);
                     return;
                 }
@@ -290,11 +290,11 @@ namespace mongo {
 
             // "Cumulative WAL: 1 writes, 0 syncs, 1.00 writes per sync, written: 0.00 GB, 0.00 MB/s",
             void parseDBStatsCumulativeWAL(const std::string& line) {
-                static std::regex rex("Cumulative WAL: "
+                static stdx::regex rex("Cumulative WAL: "
                                       "(\\d+[KMG]?) writes, (\\d+[KMG]?) syncs, "
                                       "(\\d+\\.\\d+) writes per sync, written: (\\d+\\.\\d+) GB, (\\d+\\.\\d+) MB/s");
-                std::smatch mr;
-                if (!std::regex_match(line, mr, rex)) {
+                stdx::smatch mr;
+                if (!stdx::regex_match(line, mr, rex)) {
                     error(line);
                     return;
                 }
@@ -309,9 +309,9 @@ namespace mongo {
 
             // "Cumulative stall: 00:00:0.000 H:M:S, 0.0 percent",
             void parseDBStatsCumulativeStall(const std::string& line) {
-                static std::regex rex("Cumulative stall: (\\d+):(\\d+):(\\d+\\.\\d+) H:M:S, (\\d+\\.\\d+) percent");
-                std::smatch mr;
-                if (!std::regex_match(line, mr, rex)) {
+                static stdx::regex rex("Cumulative stall: (\\d+):(\\d+):(\\d+\\.\\d+) H:M:S, (\\d+\\.\\d+) percent");
+                stdx::smatch mr;
+                if (!stdx::regex_match(line, mr, rex)) {
                     error(line);
                     return;
                 }
@@ -326,11 +326,11 @@ namespace mongo {
 
             // "Interval writes: 0 writes, 0 keys, 0 batches, 0.0 writes per batch, ingest: 0.00 MB, 0.00 MB/s",
             void parseDBStatsIntervalWrites(const std::string& line) {
-                static std::regex rex("Interval writes: "
+                static stdx::regex rex("Interval writes: "
                                       "(\\d+[KMG]?) writes, (\\d+[KMG]?) keys, (\\d+[KMG]?) batches, "
                                       "(\\d+\\.\\d+) writes per batch, ingest: (\\d+\\.\\d+) MB, (\\d+\\.\\d+) MB/s");
-                std::smatch mr;
-                if (!std::regex_match(line, mr, rex)) {
+                stdx::smatch mr;
+                if (!stdx::regex_match(line, mr, rex)) {
                     error(line);
                     return;
                 }
@@ -346,11 +346,11 @@ namespace mongo {
 
             // "Interval WAL: 0 writes, 0 syncs, 0.00 writes per sync, written: 0.00 MB, 0.00 MB/s",
             void parseDBStatsIntervalWAL(const std::string& line) {
-                static std::regex rex("Interval WAL: "
+                static stdx::regex rex("Interval WAL: "
                                       "(\\d+[KMG]?) writes, (\\d+[KMG]?) syncs, "
                                       "(\\d+\\.\\d+) writes per sync, written: (\\d+\\.\\d+) MB, (\\d+\\.\\d+) MB/s");
-                std::smatch mr;
-                if (!std::regex_match(line, mr, rex)) {
+                stdx::smatch mr;
+                if (!stdx::regex_match(line, mr, rex)) {
                     error(line);
                     return;
                 }
@@ -365,9 +365,9 @@ namespace mongo {
 
             // "Interval stall: 00:00:0.000 H:M:S, 0.0 percent",
             void parseDBStatsIntervalStall(const std::string& line) {
-                static std::regex rex("Interval stall: (\\d+):(\\d+):(\\d+\\.\\d+) H:M:S, (\\d+\\.\\d+) percent");
-                std::smatch mr;
-                if (!std::regex_match(line, mr, rex)) {
+                static stdx::regex rex("Interval stall: (\\d+):(\\d+):(\\d+\\.\\d+) H:M:S, (\\d+\\.\\d+) percent");
+                stdx::smatch mr;
+                if (!stdx::regex_match(line, mr, rex)) {
                     error(line);
                     return;
                 }
