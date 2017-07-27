@@ -34,13 +34,13 @@
 
 #include "rocks_server_status.h"
 
+#include "boost/regex.hpp"
 #include "boost/scoped_ptr.hpp"
 
 #include <rocksdb/db.h>
 
 #include "mongo/base/checked_cast.h"
 #include "mongo/bson/bsonobjbuilder.h"
-#include "mongo/stdx/regex.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/scopeguard.h"
 
@@ -50,6 +50,12 @@
 
 namespace mongo {
     using std::string;
+
+    namespace stdx {
+        using boost::regex;
+        using boost::regex_match;
+        using boost::smatch;
+    } // namespace stdx
 
     namespace {
         std::string PrettyPrintBytes(size_t bytes) {
