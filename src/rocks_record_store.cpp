@@ -1066,6 +1066,7 @@ namespace mongo {
             _lastLoc = startIterator;
             iterator();
             _skipNextAdvance = true;
+            _eof = false;
         }
     }
 
