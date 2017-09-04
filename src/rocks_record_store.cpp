@@ -1063,7 +1063,16 @@ namespace mongo {
             _needFirstSeek = false;
             _lastLoc = startIterator;
             iterator();
-            _skipNextAdvance = true;
+            if (_eof) {
+                // The hint location was deleted - fallback to work without hint
+                _needFirstSeek = true;
+                _lastLoc = RecordId{};
+                _skipNextAdvance = false;
+                _eof = false;
+            }
+            else {
+               _skipNextAdvance = true;
+            }
         }
     }
 
@@ -1182,12 +1191,14 @@ namespace mongo {
             _currentSequenceNumber = ru->snapshot()->GetSequenceNumber();
         }
 
+        const bool saved_skipNextAdvance = _skipNextAdvance;
         _skipNextAdvance = false;
 
         if (_eof) return true;
         if (_needFirstSeek) return true;
 
         positionIterator();
+        _skipNextAdvance = _skipNextAdvance || saved_skipNextAdvance;
         // Return false if the collection is capped and we reached an EOF. Otherwise return true.
         return _cappedVisibilityManager && _eof ? false : true;
     }
