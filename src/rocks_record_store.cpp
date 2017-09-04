@@ -1063,7 +1063,16 @@ namespace mongo {
             _needFirstSeek = false;
             _lastLoc = startIterator;
             iterator();
-            _skipNextAdvance = true;
+            if (_eof) {
+                // The hint location was deleted - fallback to work without hint
+                _needFirstSeek = true;
+                _lastLoc = RecordId{};
+                _skipNextAdvance = false;
+                _eof = false;
+            }
+            else {
+               _skipNextAdvance = true;
+            }
         }
     }
 
