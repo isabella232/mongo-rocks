@@ -744,19 +744,25 @@ namespace mongo {
 
     std::unique_ptr<SeekableRecordCursor> RocksRecordStore::getCursor(OperationContext* txn,
                                                                       bool forward) const {
-        if (_isOplog && forward) {
-            auto ru = RocksRecoveryUnit::getRocksRecoveryUnit(txn);
-            // If we already have a snapshot we don't know what it can see, unless we know no
-            // one else could be writing (because we hold an exclusive lock).
-            if (ru->hasSnapshot() && !txn->lockState()->isNoop() &&
-                !txn->lockState()->isCollectionLockedForMode(_ns, MODE_X)) {
-                throw WriteConflictException();
+        RecordId startIterator;
+        if (_isOplog) {
+            if (forward) {
+                auto ru = RocksRecoveryUnit::getRocksRecoveryUnit(txn);
+                // If we already have a snapshot we don't know what it can see, unless we know no
+                // one else could be writing (because we hold an exclusive lock).
+                if (ru->hasSnapshot() && !txn->lockState()->isNoop() &&
+                    !txn->lockState()->isCollectionLockedForMode(_ns, MODE_X)) {
+                    throw WriteConflictException();
+                }
+                ru->setOplogReadTill(_cappedVisibilityManager->oplogStartHack());
+                startIterator = _cappedOldestKeyHint;
+            } else {
+                startIterator = _cappedVisibilityManager->oplogStartHack();
             }
-            ru->setOplogReadTill(_cappedVisibilityManager->oplogStartHack());
         }
 
         return stdx::make_unique<Cursor>(txn, _db, _prefix, _cappedVisibilityManager, forward,
-                                         _isCapped);
+                                         _isCapped, startIterator);
     }
 
     Status RocksRecordStore::truncate(OperationContext* txn) {
@@ -1027,7 +1033,8 @@ namespace mongo {
             std::string prefix,
             std::shared_ptr<CappedVisibilityManager> cappedVisibilityManager,
             bool forward,
-            bool isCapped)
+            bool isCapped,
+            RecordId startIterator)
         : _txn(txn),
           _db(db),
           _prefix(std::move(prefix)),
@@ -1037,6 +1044,15 @@ namespace mongo {
           _readUntilForOplog(RocksRecoveryUnit::getRocksRecoveryUnit(txn)->getOplogReadTill()) {
         _currentSequenceNumber =
           RocksRecoveryUnit::getRocksRecoveryUnit(txn)->snapshot()->GetSequenceNumber();
+          
+        if (!startIterator.isNull()) {
+            // This is a hack to speed up first/last record retrieval from the oplog
+            _needFirstSeek = false;
+            _lastLoc = startIterator;
+            iterator();
+            _skipNextAdvance = true;
+            _eof = false;
+        }
     }
 
     // requires !_eof
