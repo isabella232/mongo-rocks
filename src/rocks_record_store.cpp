@@ -774,8 +774,14 @@ namespace mongo {
             ru->setOplogReadTill(_cappedVisibilityManager->oplogStartHack());
         }
 
+        std::function<RecordId(bool)> oplogHintGetter;
+        if (_isOplog) {
+            oplogHintGetter = [this] (bool forward) {
+                return forward ? _cappedOldestKeyHint : _cappedVisibilityManager->oplogStartHack();
+            };
+        }
         return stdx::make_unique<Cursor>(txn, _db, _prefix, _cappedVisibilityManager, forward,
-                                         _isCapped);
+                                         _isCapped, oplogHintGetter);
     }
 
     Status RocksRecordStore::truncate(OperationContext* txn) {
@@ -1048,13 +1054,15 @@ namespace mongo {
             std::string prefix,
             std::shared_ptr<CappedVisibilityManager> cappedVisibilityManager,
             bool forward,
-            bool isCapped)
+            bool isCapped,
+            std::function<RecordId(bool)> getOplogHint)
         : _txn(txn),
           _db(db),
           _prefix(std::move(prefix)),
           _cappedVisibilityManager(cappedVisibilityManager),
           _forward(forward),
           _isCapped(isCapped),
+          _getOplogHint(getOplogHint),
           _readUntilForOplog(RocksRecoveryUnit::getRocksRecoveryUnit(txn)->getOplogReadTill()) {
         _currentSequenceNumber =
           RocksRecoveryUnit::getRocksRecoveryUnit(txn)->snapshot()->GetSequenceNumber();
@@ -1119,7 +1127,10 @@ namespace mongo {
         if (!_skipNextAdvance) {
             if (_needFirstSeek) {
                 _needFirstSeek = false;
-                if (_forward) {
+                if (_getOplogHint) {
+                    _lastLoc = _getOplogHint(_forward);
+                    positionIterator();
+                } else if (_forward) {
                     iter->SeekToFirst();
                 } else {
                     iter->SeekToLast();

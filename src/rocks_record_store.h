@@ -220,7 +220,7 @@ namespace mongo {
         public:
             Cursor(OperationContext* txn, rocksdb::DB* db, std::string prefix,
                    std::shared_ptr<CappedVisibilityManager> cappedVisibilityManager,
-                   bool forward, bool _isCapped);
+                   bool forward, bool _isCapped, std::function<RecordId(bool)> getOplogHint);
 
             boost::optional<Record> next() final;
             boost::optional<Record> seekExact(const RecordId& id) final;
@@ -248,6 +248,7 @@ namespace mongo {
             bool _needFirstSeek = true;
             bool _skipNextAdvance = false;
             rocksdb::SequenceNumber _currentSequenceNumber;
+            std::function<RecordId(bool)> _getOplogHint;
             const RecordId _readUntilForOplog;
             RecordId _lastLoc;
             std::unique_ptr<rocksdb::Iterator> _iterator;
