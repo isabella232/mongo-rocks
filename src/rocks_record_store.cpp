@@ -1074,7 +1074,7 @@ namespace mongo {
         _currentSequenceNumber =
           RocksRecoveryUnit::getRocksRecoveryUnit(txn)->snapshot()->GetSequenceNumber();
 
-        if (forward && !startIterator.isNull() && !_readUntilForOplog.isNull()) {
+        if (!startIterator.isNull() && !_readUntilForOplog.isNull()) {
             // This is a hack to speed up first/last record retrieval from the oplog
             _needFirstSeek = false;
             _lastLoc = startIterator;
