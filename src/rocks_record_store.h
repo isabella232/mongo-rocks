@@ -79,8 +79,7 @@ namespace mongo {
 
         bool isCappedHidden(const RecordId& record) const;
         RecordId oplogStartHack() const;
-
-        RecordId lowestCappedHiddenRecord() const;
+        RecordId getHighestSeen() const;
 
         void waitForAllEarlierOplogWritesToBeVisible(OperationContext* txn) const;
         void oplogJournalThreadLoop(RocksDurabilityManager* durabilityManager);

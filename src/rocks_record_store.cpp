@@ -235,9 +235,9 @@ namespace mongo {
         }
     }
 
-    RecordId CappedVisibilityManager::lowestCappedHiddenRecord() const {
+    RecordId CappedVisibilityManager::getHighestSeen() const {
         stdx::lock_guard<stdx::mutex> lk(_uncommittedRecordIdsMutex);
-        return _uncommittedRecords.empty() ? RecordId() : _uncommittedRecords.front();
+        return _oplog_highestSeen;
     }
 
     // this object keeps track of keys in oplog. The format is this:
@@ -776,7 +776,7 @@ namespace mongo {
                 ru->setOplogReadTill(_cappedVisibilityManager->oplogStartHack());
                 startIterator = _cappedOldestKeyHint;
             } else {
-                startIterator = _cappedVisibilityManager->oplogStartHack();
+                startIterator = _cappedVisibilityManager->getHighestSeen();
             }
         }
 
