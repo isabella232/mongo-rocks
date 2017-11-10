@@ -774,9 +774,6 @@ namespace mongo {
                     throw WriteConflictException();
                 }
                 ru->setOplogReadTill(_cappedVisibilityManager->oplogStartHack());
-                startIterator = _cappedOldestKeyHint;
-            } else {
-                startIterator = _cappedVisibilityManager->oplogStartHack();
             }
         }
 
@@ -1065,15 +1062,6 @@ namespace mongo {
           _readUntilForOplog(RocksRecoveryUnit::getRocksRecoveryUnit(txn)->getOplogReadTill()) {
         _currentSequenceNumber =
           RocksRecoveryUnit::getRocksRecoveryUnit(txn)->snapshot()->GetSequenceNumber();
-          
-        if (forward && !startIterator.isNull()) {
-            // This is a hack to speed up first/last record retrieval from the oplog
-            _needFirstSeek = false;
-            _lastLoc = startIterator;
-            iterator();
-            _skipNextAdvance = true;
-            _eof = false;
-        }
     }
 
     // requires !_eof
