@@ -597,16 +597,16 @@ namespace mongo {
                 _changeNumRecords(opCtx, -docsRemoved);
                 _increaseDataSize(opCtx, -sizeSaved);
                 wuow.commit();
-            }
 
-            if (iter->Valid()) {
-                auto oldestAliveRecordId = _makeRecordId(iter->key());
-                // we check if there's outstanding transaction that is older than
-                // oldestAliveRecordId. If there is, we should not skip deleting that record next
-                // time we clean up the capped collection. If there isn't, we know for certain this
-                // is the record we'll start out deletions from next time
-                if (!_cappedVisibilityManager->isCappedHidden(oldestAliveRecordId)) {
-                    _cappedOldestKeyHint = oldestAliveRecordId;
+                if (iter->Valid()) {
+                    auto oldestAliveRecordId = _makeRecordId(iter->key());
+                    // we check if there's outstanding transaction that is older than
+                    // oldestAliveRecordId. If there is, we should not skip deleting that record next
+                    // time we clean up the capped collection. If there isn't, we know for certain this
+                    // is the record we'll start out deletions from next time
+                    if (!_cappedVisibilityManager->isCappedHidden(oldestAliveRecordId)) {
+                        _cappedOldestKeyHint = oldestAliveRecordId;
+                    }
                 }
             }
         }
