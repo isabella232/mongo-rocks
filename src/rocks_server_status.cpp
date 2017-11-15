@@ -39,6 +39,7 @@
 
 #include "mongo/base/checked_cast.h"
 #include "mongo/bson/bsonobjbuilder.h"
+#include "mongo/db/concurrency/d_concurrency.h"
 #include "mongo/util/assert_util.h"
 #include "mongo/util/scopeguard.h"
 
@@ -109,6 +110,7 @@ namespace mongo {
 
     BSONObj RocksServerStatusSection::generateSection(OperationContext* opCtx,
                                                       const BSONElement& configElement) const {
+        Lock::GlobalLock lk(opCtx->lockState(), LockMode::MODE_IS, UINT_MAX);
 
         BSONObjBuilder bob;
 
