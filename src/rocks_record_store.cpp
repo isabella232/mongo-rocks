@@ -267,13 +267,13 @@ namespace mongo {
             uint32_t size =
                 endian::littleToNative(*reinterpret_cast<const uint32_t*>(value.data()));
             return static_cast<int>(size);
-        }        
+        }
         void resetDeletedSinceCompaction() {
             _deletedKeysSinceCompaction = 0;
         }
         long long getDeletedSinceCompaction() {
             return _deletedKeysSinceCompaction;
-        }        
+        }
 
     private:
         std::atomic<long long> _deletedKeysSinceCompaction;
@@ -624,7 +624,7 @@ namespace mongo {
         txn->setRecoveryUnit(realRecoveryUnit, realRUstate);
 
         if (_isOplog) {
-            if ((_oplogSinceLastCompaction.minutes() >= kOplogCompactEveryMins) || 
+            if ((_oplogSinceLastCompaction.minutes() >= kOplogCompactEveryMins) ||
             (_oplogKeyTracker->getDeletedSinceCompaction() >= kOplogCompactEveryDeletedRecords)) {
                 log() << "Scheduling oplog compactions. time since last " << _oplogSinceLastCompaction.minutes() <<
                     " deleted since last " << _oplogKeyTracker->getDeletedSinceCompaction();
@@ -814,6 +814,8 @@ namespace mongo {
                                        BSONObjBuilder* output ) {
         long long nrecords = 0;
         long long dataSizeTotal = 0;
+        long long nInvalid = 0;
+
         if (level == kValidateRecordStore || level == kValidateFull) {
             auto cursor = getCursor(txn, true);
             results->valid = true;
@@ -826,8 +828,13 @@ namespace mongo {
                     size_t dataSize;
                     Status status = adaptor->validate(record->id, record->data, &dataSize);
                     if (!status.isOK()) {
+                        if (results->valid) {
+                            // Only log once.
+                            results->errors.push_back("detected one or more invalid documents (see logs)");
+                        }
+                        ++nInvalid;
                         results->valid = false;
-                        results->errors.push_back(str::stream() << record->id << " is corrupted");
+                        log() << "document at location: " << record->id << " is corrupted";
                     }
                     dataSizeTotal += static_cast<long long>(dataSize);
                 }
@@ -853,6 +860,7 @@ namespace mongo {
         } else {
             output->appendNumber("nrecords", numRecords(txn));
         }
+        output->append("nInvalidDocuments", nInvalid);
 
         return Status::OK();
     }
@@ -1065,8 +1073,8 @@ namespace mongo {
           _readUntilForOplog(RocksRecoveryUnit::getRocksRecoveryUnit(txn)->getOplogReadTill()) {
         _currentSequenceNumber =
           RocksRecoveryUnit::getRocksRecoveryUnit(txn)->snapshot()->GetSequenceNumber();
-          
-        if (forward && !startIterator.isNull()) {
+
+        if (!startIterator.isNull()) {
             // This is a hack to speed up first/last record retrieval from the oplog
             _needFirstSeek = false;
             _lastLoc = startIterator;
