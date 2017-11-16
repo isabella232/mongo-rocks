@@ -267,13 +267,13 @@ namespace mongo {
             uint32_t size =
                 endian::littleToNative(*reinterpret_cast<const uint32_t*>(value.data()));
             return static_cast<int>(size);
-        }        
+        }
         void resetDeletedSinceCompaction() {
             _deletedKeysSinceCompaction = 0;
         }
         long long getDeletedSinceCompaction() {
             return _deletedKeysSinceCompaction;
-        }        
+        }
 
     private:
         std::atomic<long long> _deletedKeysSinceCompaction;
@@ -595,16 +595,16 @@ namespace mongo {
                 _changeNumRecords(txn, -docsRemoved);
                 _increaseDataSize(txn, -sizeSaved);
                 wuow.commit();
-            }
 
-            if (iter->Valid()) {
-                auto oldestAliveRecordId = _makeRecordId(iter->key());
-                // we check if there's outstanding transaction that is older than
-                // oldestAliveRecordId. If there is, we should not skip deleting that record next
-                // time we clean up the capped collection. If there isn't, we know for certain this
-                // is the record we'll start out deletions from next time
-                if (!_cappedVisibilityManager->isCappedHidden(oldestAliveRecordId)) {
-                    _cappedOldestKeyHint = oldestAliveRecordId;
+                if (iter->Valid()) {
+                    auto oldestAliveRecordId = _makeRecordId(iter->key());
+                    // we check if there's outstanding transaction that is older than
+                    // oldestAliveRecordId. If there is, we should not skip deleting that record next
+                    // time we clean up the capped collection. If there isn't, we know for certain this
+                    // is the record we'll start out deletions from next time
+                    if (!_cappedVisibilityManager->isCappedHidden(oldestAliveRecordId)) {
+                        _cappedOldestKeyHint = oldestAliveRecordId;
+                    }
                 }
             }
         }
@@ -624,7 +624,7 @@ namespace mongo {
         txn->setRecoveryUnit(realRecoveryUnit, realRUstate);
 
         if (_isOplog) {
-            if ((_oplogSinceLastCompaction.minutes() >= kOplogCompactEveryMins) || 
+            if ((_oplogSinceLastCompaction.minutes() >= kOplogCompactEveryMins) ||
             (_oplogKeyTracker->getDeletedSinceCompaction() >= kOplogCompactEveryDeletedRecords)) {
                 log() << "Scheduling oplog compactions. time since last " << _oplogSinceLastCompaction.minutes() <<
                     " deleted since last " << _oplogKeyTracker->getDeletedSinceCompaction();
@@ -764,20 +764,16 @@ namespace mongo {
     std::unique_ptr<SeekableRecordCursor> RocksRecordStore::getCursor(OperationContext* txn,
                                                                       bool forward) const {
         RecordId startIterator;
-        if (_isOplog) {
-            if (forward) {
-                auto ru = RocksRecoveryUnit::getRocksRecoveryUnit(txn);
-                // If we already have a snapshot we don't know what it can see, unless we know no
-                // one else could be writing (because we hold an exclusive lock).
-                if (ru->hasSnapshot() && !txn->lockState()->isNoop() &&
-                    !txn->lockState()->isCollectionLockedForMode(_ns, MODE_X)) {
-                    throw WriteConflictException();
-                }
-                ru->setOplogReadTill(_cappedVisibilityManager->oplogStartHack());
-                startIterator = _cappedOldestKeyHint;
-            } else {
-                startIterator = _cappedVisibilityManager->oplogStartHack();
+        if (_isOplog && forward) {
+            auto ru = RocksRecoveryUnit::getRocksRecoveryUnit(txn);
+            // If we already have a snapshot we don't know what it can see, unless we know no
+            // one else could be writing (because we hold an exclusive lock).
+            if (ru->hasSnapshot() && !txn->lockState()->isNoop() &&
+                !txn->lockState()->isCollectionLockedForMode(_ns, MODE_X)) {
+                throw WriteConflictException();
             }
+            ru->setOplogReadTill(_cappedVisibilityManager->oplogStartHack());
+            startIterator = _cappedOldestKeyHint;
         }
 
         return stdx::make_unique<Cursor>(txn, _db, _prefix, _cappedVisibilityManager, forward,
@@ -814,6 +810,8 @@ namespace mongo {
                                        BSONObjBuilder* output ) {
         long long nrecords = 0;
         long long dataSizeTotal = 0;
+        long long nInvalid = 0;
+
         if (level == kValidateRecordStore || level == kValidateFull) {
             auto cursor = getCursor(txn, true);
             results->valid = true;
@@ -826,8 +824,13 @@ namespace mongo {
                     size_t dataSize;
                     Status status = adaptor->validate(record->id, record->data, &dataSize);
                     if (!status.isOK()) {
+                        if (results->valid) {
+                            // Only log once.
+                            results->errors.push_back("detected one or more invalid documents (see logs)");
+                        }
+                        ++nInvalid;
                         results->valid = false;
-                        results->errors.push_back(str::stream() << record->id << " is corrupted");
+                        log() << "document at location: " << record->id << " is corrupted";
                     }
                     dataSizeTotal += static_cast<long long>(dataSize);
                 }
@@ -853,6 +856,7 @@ namespace mongo {
         } else {
             output->appendNumber("nrecords", numRecords(txn));
         }
+        output->append("nInvalidDocuments", nInvalid);
 
         return Status::OK();
     }
@@ -1065,14 +1069,13 @@ namespace mongo {
           _readUntilForOplog(RocksRecoveryUnit::getRocksRecoveryUnit(txn)->getOplogReadTill()) {
         _currentSequenceNumber =
           RocksRecoveryUnit::getRocksRecoveryUnit(txn)->snapshot()->GetSequenceNumber();
-          
+
         if (forward && !startIterator.isNull()) {
             // This is a hack to speed up first/last record retrieval from the oplog
             _needFirstSeek = false;
             _lastLoc = startIterator;
             iterator();
             _skipNextAdvance = true;
-            _eof = false;
         }
     }
 
