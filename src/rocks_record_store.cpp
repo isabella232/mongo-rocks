@@ -597,16 +597,16 @@ namespace mongo {
                 _changeNumRecords(opCtx, -docsRemoved);
                 _increaseDataSize(opCtx, -sizeSaved);
                 wuow.commit();
-            }
 
-            if (iter->Valid()) {
-                auto oldestAliveRecordId = _makeRecordId(iter->key());
-                // we check if there's outstanding transaction that is older than
-                // oldestAliveRecordId. If there is, we should not skip deleting that record next
-                // time we clean up the capped collection. If there isn't, we know for certain this
-                // is the record we'll start out deletions from next time
-                if (!_cappedVisibilityManager->isCappedHidden(oldestAliveRecordId)) {
-                    _cappedOldestKeyHint = oldestAliveRecordId;
+                if (iter->Valid()) {
+                    auto oldestAliveRecordId = _makeRecordId(iter->key());
+                    // we check if there's outstanding transaction that is older than
+                    // oldestAliveRecordId. If there is, we should not skip deleting that record next
+                    // time we clean up the capped collection. If there isn't, we know for certain this
+                    // is the record we'll start out deletions from next time
+                    if (!_cappedVisibilityManager->isCappedHidden(oldestAliveRecordId)) {
+                        _cappedOldestKeyHint = oldestAliveRecordId;
+                    }
                 }
             }
         }
@@ -769,20 +769,16 @@ namespace mongo {
     std::unique_ptr<SeekableRecordCursor> RocksRecordStore::getCursor(OperationContext* opCtx,
                                                                       bool forward) const {
         RecordId startIterator;
-        if (_isOplog) {
-            if (forward) {
-                auto ru = RocksRecoveryUnit::getRocksRecoveryUnit(opCtx);
-                // If we already have a snapshot we don't know what it can see, unless we know no
-                // one else could be writing (because we hold an exclusive lock).
-                if (ru->hasSnapshot() && !opCtx->lockState()->isNoop() &&
-                    !opCtx->lockState()->isCollectionLockedForMode(_ns, MODE_X)) {
-                    throw WriteConflictException();
-                }
-                ru->setOplogReadTill(_cappedVisibilityManager->oplogStartHack());
-                startIterator = _cappedOldestKeyHint;
-            } else {
-                startIterator = _cappedVisibilityManager->oplogStartHack();
+        if (_isOplog && forward) {
+            auto ru = RocksRecoveryUnit::getRocksRecoveryUnit(opCtx);
+            // If we already have a snapshot we don't know what it can see, unless we know no
+            // one else could be writing (because we hold an exclusive lock).
+            if (ru->hasSnapshot() && !opCtx->lockState()->isNoop() &&
+                !opCtx->lockState()->isCollectionLockedForMode(_ns, MODE_X)) {
+                throw WriteConflictException();
             }
+            ru->setOplogReadTill(_cappedVisibilityManager->oplogStartHack());
+            startIterator = _cappedOldestKeyHint;
         }
 
         return stdx::make_unique<Cursor>(opCtx, _db, _prefix, _cappedVisibilityManager, forward,
@@ -1066,13 +1062,12 @@ namespace mongo {
         _currentSequenceNumber =
           RocksRecoveryUnit::getRocksRecoveryUnit(opCtx)->snapshot()->GetSequenceNumber();
 
-        if (!startIterator.isNull() && !_readUntilForOplog.isNull()) {
+        if (forward && !startIterator.isNull()) {
             // This is a hack to speed up first/last record retrieval from the oplog
             _needFirstSeek = false;
             _lastLoc = startIterator;
             iterator();
             _skipNextAdvance = true;
-            _eof = false;
         }
     }
 
