@@ -267,13 +267,13 @@ namespace mongo {
             uint32_t size =
                 endian::littleToNative(*reinterpret_cast<const uint32_t*>(value.data()));
             return static_cast<int>(size);
-        }        
+        }
         void resetDeletedSinceCompaction() {
             _deletedKeysSinceCompaction = 0;
         }
         long long getDeletedSinceCompaction() {
             return _deletedKeysSinceCompaction;
-        }        
+        }
 
     private:
         std::atomic<long long> _deletedKeysSinceCompaction;
@@ -624,7 +624,7 @@ namespace mongo {
         txn->setRecoveryUnit(realRecoveryUnit, realRUstate);
 
         if (_isOplog) {
-            if ((_oplogSinceLastCompaction.minutes() >= kOplogCompactEveryMins) || 
+            if ((_oplogSinceLastCompaction.minutes() >= kOplogCompactEveryMins) ||
             (_oplogKeyTracker->getDeletedSinceCompaction() >= kOplogCompactEveryDeletedRecords)) {
                 log() << "Scheduling oplog compactions. time since last " << _oplogSinceLastCompaction.minutes() <<
                     " deleted since last " << _oplogKeyTracker->getDeletedSinceCompaction();
