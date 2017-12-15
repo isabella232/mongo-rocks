@@ -92,11 +92,24 @@ namespace mongo {
         return _snapshotMap.at(*_committedSnapshot);
     }
 
+    void RocksSnapshotManager::insertSnapshot(rocksdb::DB* db, const rocksdb::Snapshot* snapshot, const SnapshotName& name) {
+        stdx::lock_guard<stdx::mutex> lock(_mutex);
+        uint64_t nameU64 = name.asU64();
+        _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(db, snapshot, nameU64);
+        _snapshots.push_back(nameU64);
+    }
+
     RocksSnapshotManager::SnapshotHolder::SnapshotHolder(OperationContext* opCtx, uint64_t name_) {
         name = name_;
         auto rru = RocksRecoveryUnit::getRocksRecoveryUnit(opCtx);
         snapshot = rru->getPreparedSnapshot();
         db = rru->getDB();
+    }
+
+    RocksSnapshotManager::SnapshotHolder::SnapshotHolder(rocksdb::DB* db_, const rocksdb::Snapshot* snapshot_, uint64_t name_) {
+        name = name_;
+        db = db_;
+        snapshot = snapshot_;
     }
 
     RocksSnapshotManager::SnapshotHolder::~SnapshotHolder() {
