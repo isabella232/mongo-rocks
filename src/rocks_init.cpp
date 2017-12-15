@@ -36,6 +36,7 @@
 #include "mongo/db/storage/storage_engine_metadata.h"
 #include "mongo/util/mongoutils/str.h"
 
+#include "rocks_global_options.h"
 #include "rocks_engine.h"
 #include "rocks_server_status.h"
 #include "rocks_parameters.h"
@@ -68,6 +69,9 @@ namespace mongo {
                 auto leaked4 __attribute__((unused)) = new RocksCompactServerParameter(engine);
                 auto leaked5 __attribute__((unused)) = new RocksCacheSizeParameter(engine);
                 auto leaked6 __attribute__((unused)) = new RocksOptionsParameter(engine);
+
+                // Print options.
+                rocksGlobalOptions.printOptions();
 
                 return new KVStorageEngine(engine, options);
             }
