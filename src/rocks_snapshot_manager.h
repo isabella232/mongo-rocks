@@ -50,6 +50,7 @@ public:
         const rocksdb::Snapshot* snapshot;
         rocksdb::DB* db;
         SnapshotHolder(OperationContext* opCtx, uint64_t name_);
+        SnapshotHolder(rocksdb::DB* db_, const rocksdb::Snapshot* snapshot_, uint64_t name_);
         ~SnapshotHolder();
     };
 
@@ -71,6 +72,8 @@ public:
     bool haveCommittedSnapshot() const;
 
     std::shared_ptr<RocksSnapshotManager::SnapshotHolder> getCommittedSnapshot() const;
+
+    void insertSnapshot(rocksdb::DB* db, const rocksdb::Snapshot* snapshot, const Timestamp timestamp);
 
 private:
     std::vector<uint64_t> _snapshots;  // sorted
