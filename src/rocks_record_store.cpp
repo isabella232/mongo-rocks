@@ -675,6 +675,8 @@ namespace mongo {
             loc = _nextId();
         }
 
+        LOG(4) << "inserting record with timestamp " << timestamp.asULL();
+        fassertStatusOK(39418, opCtx->recoveryUnit()->setTimestamp(SnapshotName(timestamp)));
         // No need to register the write here, since we just allocated a new RecordId so no other
         // transaction can access this key before we commit
         ru->writeBatch()->Put(_makePrefixedKey(_prefix, loc), rocksdb::Slice(data, len));

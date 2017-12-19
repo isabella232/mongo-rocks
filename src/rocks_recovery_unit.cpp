@@ -400,6 +400,9 @@ namespace mongo {
 
         if (_readFromMajorityCommittedSnapshot) {
             if (_snapshotHolder.get() == nullptr) {
+                if (!_snapshotManager->materializedCommittedSnapshot()) {
+                    _snapshotManager->recordCommittedSnapshot(_db, _db->GetSnapshot());
+                }
                 _snapshotHolder = _snapshotManager->getCommittedSnapshot();
             }
             return _snapshotHolder->snapshot;

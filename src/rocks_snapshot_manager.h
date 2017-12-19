@@ -74,6 +74,8 @@ public:
     std::shared_ptr<RocksSnapshotManager::SnapshotHolder> getCommittedSnapshot() const;
 
     void insertSnapshot(rocksdb::DB* db, const rocksdb::Snapshot* snapshot, const SnapshotName& name);
+    bool materializedCommittedSnapshot() const;
+    void recordCommittedSnapshot(rocksdb::DB* db, const rocksdb::Snapshot* snapshot);
 
 private:
     std::vector<uint64_t> _snapshots;  // sorted
