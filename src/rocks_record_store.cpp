@@ -717,7 +717,7 @@ namespace mongo {
         invariant(pos == (buffer.get() + totalSize));
 
         for (size_t i = 0; i < nDocs; ++i) {
-            auto s = insertRecord(opCtx, records[i].data.data(), records[i].data.size(), Timestamp(), true);
+            auto s = insertRecord(opCtx, records[i].data.data(), records[i].data.size(), timestamps[i], true);
             if (!s.isOK())
                 return s.getStatus();
             if (idsOut)
