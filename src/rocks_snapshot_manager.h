@@ -49,7 +49,6 @@ public:
         uint64_t name;
         const rocksdb::Snapshot* snapshot;
         rocksdb::DB* db;
-        SnapshotHolder(OperationContext* opCtx, uint64_t name_);
         SnapshotHolder(rocksdb::DB* db_, const rocksdb::Snapshot* snapshot_, uint64_t name_);
         ~SnapshotHolder();
     };

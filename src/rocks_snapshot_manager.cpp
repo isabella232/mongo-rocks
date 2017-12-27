@@ -114,12 +114,6 @@ namespace mongo {
             _snapshots.push_back(nameU64);
         }
     }
-    RocksSnapshotManager::SnapshotHolder::SnapshotHolder(OperationContext* opCtx, uint64_t name_) {
-        name = name_;
-        auto rru = RocksRecoveryUnit::getRocksRecoveryUnit(opCtx);
-        snapshot = rru->getPreparedSnapshot();
-        db = rru->getDB();
-    }
 
     RocksSnapshotManager::SnapshotHolder::SnapshotHolder(rocksdb::DB* db_, const rocksdb::Snapshot* snapshot_, uint64_t name_) {
         name = name_;
