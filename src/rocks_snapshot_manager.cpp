@@ -102,6 +102,7 @@ namespace mongo {
     }
 
     bool RocksSnapshotManager::materializedCommittedSnapshot() const {
+        stdx::lock_guard<stdx::mutex> lock(_mutex);
         return _snapshotMap.find(*_committedSnapshot) != _snapshotMap.end();
     }
 
