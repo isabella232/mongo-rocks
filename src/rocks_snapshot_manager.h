@@ -60,7 +60,7 @@ public:
     }
 
     Status prepareForCreateSnapshot(OperationContext* opCtx) final;
-    void setCommittedSnapshot(const SnapshotName& name, Timestamp ts) final;
+    void setCommittedSnapshot(const Timestamp& timestamp) final;
     void cleanupUnneededSnapshots() final;
     void dropAllSnapshots() final;
 
