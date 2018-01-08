@@ -171,8 +171,6 @@ namespace mongo {
         void _commit();
 
         void _abort();
-        std::shared_ptr<RocksSnapshotManager::SnapshotHolder>  _getCommittedSnapshot() const;
-
         RocksTransactionEngine* _transactionEngine;      // not owned
         RocksSnapshotManager* _snapshotManager;          // not owned
         rocksdb::DB* _db;                                // not owned

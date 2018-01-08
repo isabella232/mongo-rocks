@@ -288,6 +288,10 @@ namespace mongo {
         }
         invariant(_snapshot == nullptr);
 
+        if (!_snapshotManager->materializedCommittedSnapshot()) {
+            _snapshotManager->recordCommittedSnapshot(_db, _db->GetSnapshot());
+        }
+
         _readFromMajorityCommittedSnapshot = true;
         return Status::OK();
     }
@@ -295,7 +299,7 @@ namespace mongo {
     boost::optional<Timestamp> RocksRecoveryUnit::getMajorityCommittedSnapshot() const {
         if (!_readFromMajorityCommittedSnapshot)
             return {};
-        return Timestamp(_getCommittedSnapshot().get()->name);
+        return Timestamp(_snapshotManager->getCommittedSnapshot().get()->name);
     }
 
     SnapshotId RocksRecoveryUnit::getSnapshotId() const { return SnapshotId(_mySnapshotId); }
@@ -359,6 +363,7 @@ namespace mongo {
         _writeBatch.Clear();
         if (_isTimestamped) {
             _snapshotManager->insertSnapshot(_db, _db->GetSnapshot(), _futureWritesTimestamp);
+            _isTimestamped = false;
         }
     }
 
@@ -382,13 +387,6 @@ namespace mongo {
         _releaseSnapshot();
     }
 
-    std::shared_ptr<RocksSnapshotManager::SnapshotHolder>  RocksRecoveryUnit::_getCommittedSnapshot() const {
-        if (!_snapshotManager->materializedCommittedSnapshot()) {
-            _snapshotManager->recordCommittedSnapshot(_db, _db->GetSnapshot());
-        }
-        return _snapshotManager->getCommittedSnapshot();
-    }
-
     const rocksdb::Snapshot* RocksRecoveryUnit::getPreparedSnapshot() {
         auto ret = _preparedSnapshot;
         _preparedSnapshot = nullptr;
@@ -407,7 +405,7 @@ namespace mongo {
 
         if (_readFromMajorityCommittedSnapshot) {
             if (_snapshotHolder.get() == nullptr) {
-                _snapshotHolder = _getCommittedSnapshot();
+                _snapshotHolder = _snapshotManager->getCommittedSnapshot();
             }
             return _snapshotHolder->snapshot;
         }
