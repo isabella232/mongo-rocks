@@ -51,6 +51,10 @@ namespace mongo {
         uint64_t nameU64 = timestamp.asULL();
         invariant(!_committedSnapshot || *_committedSnapshot <= nameU64);
         _committedSnapshot = nameU64;
+        if (_snapshotMap.find(*_committedSnapshot) == _snapshotMap.end()) {
+            // create snapshot for majority committed reads now
+            _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(_db, _db->GetSnapshot(), nameU64);
+        }
     }
 
     void RocksSnapshotManager::cleanupUnneededSnapshots() {
@@ -87,17 +91,6 @@ namespace mongo {
     void RocksSnapshotManager::insertSnapshot(rocksdb::DB* db, const rocksdb::Snapshot* snapshot, const Timestamp timestamp) {
         stdx::lock_guard<stdx::mutex> lock(_mutex);
         uint64_t nameU64 = timestamp.asULL();
-        _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(db, snapshot, nameU64);
-    }
-
-    bool RocksSnapshotManager::materializedCommittedSnapshot() const {
-        stdx::lock_guard<stdx::mutex> lock(_mutex);
-        return _snapshotMap.find(*_committedSnapshot) != _snapshotMap.end();
-    }
-
-    void RocksSnapshotManager::recordCommittedSnapshot(rocksdb::DB* db, const rocksdb::Snapshot* snapshot) {
-        stdx::lock_guard<stdx::mutex> lock(_mutex);
-        uint64_t nameU64 = *_committedSnapshot;
         _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(db, snapshot, nameU64);
     }
 

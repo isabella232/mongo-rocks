@@ -288,10 +288,6 @@ namespace mongo {
         }
         invariant(_snapshot == nullptr);
 
-        if (!_snapshotManager->materializedCommittedSnapshot()) {
-            _snapshotManager->recordCommittedSnapshot(_db, _db->GetSnapshot());
-        }
-
         _readFromMajorityCommittedSnapshot = true;
         return Status::OK();
     }
