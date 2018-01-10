@@ -50,6 +50,10 @@ namespace mongo {
 
         uint64_t nameU64 = timestamp.asULL();
         invariant(!_committedSnapshot || *_committedSnapshot <= nameU64);
+        // condition intentionally differs from previous invariant
+        _updatedCommittedSnapshot = !_committedSnapshot || *_committedSnapshot < nameU64;
+        if (!_updatedCommittedSnapshot)
+            return;
         _committedSnapshot = nameU64;
         if (_snapshotMap.find(*_committedSnapshot) == _snapshotMap.end()) {
             // create snapshot for majority committed reads now
@@ -59,17 +63,19 @@ namespace mongo {
 
     void RocksSnapshotManager::cleanupUnneededSnapshots() {
         stdx::lock_guard<stdx::mutex> lock(_mutex);
-        if (!_committedSnapshot) {
+        if (!_updatedCommittedSnapshot) {
             return;
         }
 
         // erasing snapshots with timestamps less than *_committedSnapshot
         _snapshotMap.erase(_snapshotMap.begin(), _snapshotMap.find(*_committedSnapshot));
+        _updatedCommittedSnapshot = false;
     }
 
     void RocksSnapshotManager::dropAllSnapshots() {
         stdx::lock_guard<stdx::mutex> lock(_mutex);
         _committedSnapshot = boost::none;
+        _updatedCommittedSnapshot = false;
         _snapshotMap.clear();
     }
 

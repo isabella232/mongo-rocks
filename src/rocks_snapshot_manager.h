@@ -81,5 +81,6 @@ private:
 
     mutable stdx::mutex _mutex;  // Guards all members
     rocksdb::DB* _db = nullptr;  // not owned
+    bool _updatedCommittedSnapshot = false;
 };
 } // namespace mongo

@@ -226,6 +226,7 @@ namespace mongo {
           _preparedSnapshot(nullptr),
           _mySnapshotId(nextSnapshotId.fetchAndAdd(1)) {
         RocksRecoveryUnit::_totalLiveRecoveryUnits.fetch_add(1, std::memory_order_relaxed);
+        _snapshotManager->cleanupUnneededSnapshots();
     }
 
     RocksRecoveryUnit::~RocksRecoveryUnit() {
