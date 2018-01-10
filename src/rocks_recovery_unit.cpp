@@ -305,8 +305,10 @@ namespace mongo {
     SnapshotId RocksRecoveryUnit::getSnapshotId() const { return SnapshotId(_mySnapshotId); }
 
     Status RocksRecoveryUnit::setTimestamp(Timestamp timestamp) {
-        _futureWritesTimestamp = timestamp;
-        _isTimestamped = true;
+        if (timestamp != Timestamp::min()) {
+            _futureWritesTimestamp = timestamp;
+            _isTimestamped = true;
+        }
         return Status::OK();
     }
 
