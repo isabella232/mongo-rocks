@@ -76,8 +76,11 @@ public:
     void setDB(rocksdb::DB* db);
 
 private:
-    std::map<uint64_t, std::shared_ptr<SnapshotHolder>> _snapshotMap;
+    typedef std::map<uint64_t, std::shared_ptr<SnapshotHolder>> SnapshotMap;
+
+    SnapshotMap _snapshotMap;
     boost::optional<uint64_t> _committedSnapshot;
+    SnapshotMap::iterator _committedSnapshotIter; // Cached iterator to current committed snapshot
 
     mutable stdx::mutex _mutex;  // Guards all members
     rocksdb::DB* _db = nullptr;  // not owned

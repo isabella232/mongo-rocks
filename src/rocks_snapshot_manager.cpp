@@ -55,10 +55,11 @@ namespace mongo {
         if (!_updatedCommittedSnapshot)
             return;
         _committedSnapshot = nameU64;
-        if (_snapshotMap.find(*_committedSnapshot) == _snapshotMap.end()) {
-            // create snapshot for majority committed reads now
-            _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(_db, _db->GetSnapshot(), nameU64);
+        auto insResult = _snapshotMap.insert(SnapshotMap::value_type(nameU64, nullptr));
+        if (insResult.second) {
+            insResult.first->second = std::make_shared<SnapshotHolder>(_db, _db->GetSnapshot(), nameU64);
         }
+        _committedSnapshotIter = insResult.first;
     }
 
     void RocksSnapshotManager::cleanupUnneededSnapshots() {
@@ -68,7 +69,7 @@ namespace mongo {
         }
 
         // erasing snapshots with timestamps less than *_committedSnapshot
-        _snapshotMap.erase(_snapshotMap.begin(), _snapshotMap.find(*_committedSnapshot));
+        _snapshotMap.erase(_snapshotMap.begin(), _committedSnapshotIter);
         _updatedCommittedSnapshot = false;
     }
 
@@ -76,6 +77,7 @@ namespace mongo {
         stdx::lock_guard<stdx::mutex> lock(_mutex);
         _committedSnapshot = boost::none;
         _updatedCommittedSnapshot = false;
+        _committedSnapshotIter = SnapshotMap::iterator{};
         _snapshotMap.clear();
     }
 
@@ -91,7 +93,7 @@ namespace mongo {
         uassert(ErrorCodes::ReadConcernMajorityNotAvailableYet,
                 "Committed view disappeared while running operation", _committedSnapshot);
 
-        return _snapshotMap.at(*_committedSnapshot);
+        return _committedSnapshotIter->second;
     }
 
     void RocksSnapshotManager::insertSnapshot(rocksdb::DB* db, const rocksdb::Snapshot* snapshot, const Timestamp timestamp) {
