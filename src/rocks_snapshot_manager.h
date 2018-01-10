@@ -75,6 +75,7 @@ public:
     void insertSnapshot(rocksdb::DB* db, const rocksdb::Snapshot* snapshot, const Timestamp timestamp);
     bool materializedCommittedSnapshot() const;
     void recordCommittedSnapshot(rocksdb::DB* db, const rocksdb::Snapshot* snapshot);
+    void setDB(rocksdb::DB* db);
 
 private:
     std::vector<uint64_t> _snapshots;  // sorted
@@ -82,5 +83,6 @@ private:
     boost::optional<uint64_t> _committedSnapshot;
 
     mutable stdx::mutex _mutex;  // Guards all members
+    rocksdb::DB* _db = nullptr;  // not owned
 };
 } // namespace mongo

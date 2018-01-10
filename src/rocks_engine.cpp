@@ -207,6 +207,7 @@ namespace mongo {
         invariantRocksOK(s);
         _db.reset(db);
 
+        _snapshotManager.setDB(_db.get());
         _counterManager.reset(
             new RocksCounterManager(_db.get(), rocksGlobalOptions.crashSafeCounters));
 
