@@ -59,22 +59,14 @@ namespace mongo {
             return;
         }
 
-        auto it = _snapshots.begin();
-        for (; it != _snapshots.end() && *it != _committedSnapshot; it++) {
-            auto snapshotHolder = _snapshotMap.find(*it);
-            // _snapshots and _snapshotMap have to have the same snapshots
-            invariant(snapshotHolder != _snapshotMap.end());
-            _snapshotMap.erase(snapshotHolder);
-        }
-        invariant(it != _snapshots.end());
-        _snapshots.erase(_snapshots.begin(), it);
+        // erasing snapshots with timestamps less than *_committedSnapshot
+        _snapshotMap.erase(_snapshotMap.begin(), _snapshotMap.find(*_committedSnapshot));
     }
 
     void RocksSnapshotManager::dropAllSnapshots() {
         stdx::lock_guard<stdx::mutex> lock(_mutex);
         _committedSnapshot = boost::none;
         _snapshotMap.clear();
-        _snapshots.clear();
     }
 
     bool RocksSnapshotManager::haveCommittedSnapshot() const {
@@ -96,9 +88,6 @@ namespace mongo {
         stdx::lock_guard<stdx::mutex> lock(_mutex);
         uint64_t nameU64 = timestamp.asULL();
         _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(db, snapshot, nameU64);
-        if (_snapshots.empty() || _snapshots.back() != nameU64) {
-            _snapshots.push_back(nameU64);
-        }
     }
 
     bool RocksSnapshotManager::materializedCommittedSnapshot() const {
@@ -110,9 +99,6 @@ namespace mongo {
         stdx::lock_guard<stdx::mutex> lock(_mutex);
         uint64_t nameU64 = *_committedSnapshot;
         _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(db, snapshot, nameU64);
-        if (_snapshots.empty() || _snapshots.back() != nameU64) {
-            _snapshots.push_back(nameU64);
-        }
     }
 
     void RocksSnapshotManager::setDB(rocksdb::DB* db) {

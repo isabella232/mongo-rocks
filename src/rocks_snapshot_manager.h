@@ -26,7 +26,7 @@
  *    it in the license file.
  */
 
-#include <forward_list>
+#include <map>
 
 #include <rocksdb/db.h>
 
@@ -78,8 +78,7 @@ public:
     void setDB(rocksdb::DB* db);
 
 private:
-    std::vector<uint64_t> _snapshots;  // sorted
-    std::unordered_map<uint64_t, std::shared_ptr<SnapshotHolder>> _snapshotMap;
+    std::map<uint64_t, std::shared_ptr<SnapshotHolder>> _snapshotMap;
     boost::optional<uint64_t> _committedSnapshot;
 
     mutable stdx::mutex _mutex;  // Guards all members
