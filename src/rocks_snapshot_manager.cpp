@@ -49,9 +49,8 @@ namespace mongo {
         stdx::lock_guard<stdx::mutex> lock(_mutex);
 
         uint64_t nameU64 = timestamp.asULL();
-        invariant(!_committedSnapshot || *_committedSnapshot <= nameU64);
-        // condition intentionally differs from previous invariant
         _updatedCommittedSnapshot = !_committedSnapshot || *_committedSnapshot < nameU64;
+        invariant(_updatedCommittedSnapshot || *_committedSnapshot == nameU64);
         if (!_updatedCommittedSnapshot)
             return;
         _committedSnapshot = nameU64;
@@ -96,10 +95,11 @@ namespace mongo {
         return _committedSnapshotIter->second;
     }
 
-    void RocksSnapshotManager::insertSnapshot(rocksdb::DB* db, const rocksdb::Snapshot* snapshot, const Timestamp timestamp) {
-        stdx::lock_guard<stdx::mutex> lock(_mutex);
+    void RocksSnapshotManager::insertSnapshot(const Timestamp timestamp) {
+        auto snapshot = _db->GetSnapshot();
         uint64_t nameU64 = timestamp.asULL();
-        _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(db, snapshot, nameU64);
+        stdx::lock_guard<stdx::mutex> lock(_mutex);
+        _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(_db, snapshot, nameU64);
     }
 
     void RocksSnapshotManager::setDB(rocksdb::DB* db) {

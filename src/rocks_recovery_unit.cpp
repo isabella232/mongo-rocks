@@ -361,7 +361,7 @@ namespace mongo {
         _deltaCounters.clear();
         _writeBatch.Clear();
         if (_isTimestamped) {
-            _snapshotManager->insertSnapshot(_db, _db->GetSnapshot(), _futureWritesTimestamp);
+            _snapshotManager->insertSnapshot(_futureWritesTimestamp);
             _isTimestamped = false;
         }
     }

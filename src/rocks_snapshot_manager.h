@@ -72,7 +72,7 @@ public:
 
     std::shared_ptr<RocksSnapshotManager::SnapshotHolder> getCommittedSnapshot() const;
 
-    void insertSnapshot(rocksdb::DB* db, const rocksdb::Snapshot* snapshot, const Timestamp timestamp);
+    void insertSnapshot(const Timestamp timestamp);
     void setDB(rocksdb::DB* db);
 
 private:
