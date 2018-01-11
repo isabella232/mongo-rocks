@@ -53,7 +53,7 @@ public:
         ~SnapshotHolder();
     };
 
-    RocksSnapshotManager() {}
+    RocksSnapshotManager(rocksdb::DB* db) : _db(db) {}
 
     ~RocksSnapshotManager() {
         dropAllSnapshots();
@@ -73,7 +73,6 @@ public:
     std::shared_ptr<RocksSnapshotManager::SnapshotHolder> getCommittedSnapshot() const;
 
     void insertSnapshot(const Timestamp timestamp);
-    void setDB(rocksdb::DB* db);
 
 private:
     typedef std::map<uint64_t, std::shared_ptr<SnapshotHolder>> SnapshotMap;

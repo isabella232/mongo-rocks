@@ -132,7 +132,7 @@ namespace mongo {
         virtual void cleanShutdown();
 
         virtual SnapshotManager* getSnapshotManager() const final {
-            return (SnapshotManager*) &_snapshotManager;
+            return (SnapshotManager*) _snapshotManager.get();
         }
 
         /**
@@ -204,7 +204,7 @@ namespace mongo {
         // This is for concurrency control
         RocksTransactionEngine _transactionEngine;
 
-        RocksSnapshotManager _snapshotManager;
+        std::unique_ptr<RocksSnapshotManager> _snapshotManager;
 
         // CounterManages manages counters like numRecords and dataSize for record stores
         std::unique_ptr<RocksCounterManager> _counterManager;

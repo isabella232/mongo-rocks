@@ -63,6 +63,7 @@ namespace mongo {
             auto s = rocksdb::DB::Open(options, _tempDir.path(), &db);
             ASSERT(s.ok());
             _db.reset(db);
+            _snapshotManager.reset(new RocksSnapshotManager(_db.get()));
             _counterManager.reset(new RocksCounterManager(_db.get(), true));
             _durabilityManager.reset(new RocksDurabilityManager(_db.get(), true));
             _compactionScheduler.reset(new RocksCompactionScheduler());
@@ -94,7 +95,7 @@ namespace mongo {
         }
 
         std::unique_ptr<RecoveryUnit> newRecoveryUnit() final {
-            return stdx::make_unique<RocksRecoveryUnit>(&_transactionEngine, &_snapshotManager,
+            return stdx::make_unique<RocksRecoveryUnit>(&_transactionEngine, _snapshotManager.get(),
                                                         _db.get(), _counterManager.get(), nullptr,
                                                         _durabilityManager.get(), true);
         }
@@ -108,7 +109,7 @@ namespace mongo {
         unittest::TempDir _tempDir;
         std::unique_ptr<rocksdb::DB> _db;
         RocksTransactionEngine _transactionEngine;
-        RocksSnapshotManager _snapshotManager;
+        std::unique_ptr<RocksSnapshotManager> _snapshotManager;
         std::unique_ptr<RocksDurabilityManager> _durabilityManager;
         std::unique_ptr<RocksCounterManager> _counterManager;
         std::unique_ptr<RocksCompactionScheduler> _compactionScheduler;

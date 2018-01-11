@@ -102,10 +102,6 @@ namespace mongo {
         _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(_db, snapshot, nameU64);
     }
 
-    void RocksSnapshotManager::setDB(rocksdb::DB* db) {
-        _db = db;
-    }
-
     RocksSnapshotManager::SnapshotHolder::SnapshotHolder(rocksdb::DB* db_, const rocksdb::Snapshot* snapshot_, uint64_t name_) {
         name = name_;
         db = db_;

@@ -207,7 +207,8 @@ namespace mongo {
         invariantRocksOK(s);
         _db.reset(db);
 
-        _snapshotManager.setDB(_db.get());
+        _snapshotManager.reset(
+            new RocksSnapshotManager(_db.get()));
         _counterManager.reset(
             new RocksCounterManager(_db.get(), rocksGlobalOptions.crashSafeCounters));
 
@@ -290,7 +291,7 @@ namespace mongo {
     }
 
     RecoveryUnit* RocksEngine::newRecoveryUnit() {
-        return new RocksRecoveryUnit(&_transactionEngine, &_snapshotManager, _db.get(),
+        return new RocksRecoveryUnit(&_transactionEngine, _snapshotManager.get(), _db.get(),
                                      _counterManager.get(), _compactionScheduler.get(),
                                      _durabilityManager.get(), _durable);
     }
@@ -432,7 +433,8 @@ namespace mongo {
             _journalFlusher.reset();
         }
         _durabilityManager.reset();
-        _snapshotManager.dropAllSnapshots();
+        _snapshotManager->dropAllSnapshots();
+        _snapshotManager.reset();
         _counterManager->sync();
         _counterManager.reset();
         _compactionScheduler.reset();
