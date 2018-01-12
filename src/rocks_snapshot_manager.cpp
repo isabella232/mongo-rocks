@@ -49,32 +49,35 @@ namespace mongo {
         stdx::lock_guard<stdx::mutex> lock(_mutex);
 
         uint64_t nameU64 = timestamp.asULL();
-        invariant(!_committedSnapshot || *_committedSnapshot <= nameU64);
+        _updatedCommittedSnapshot = !_committedSnapshot || *_committedSnapshot < nameU64;
+        invariant(_updatedCommittedSnapshot || *_committedSnapshot == nameU64);
+        if (!_updatedCommittedSnapshot)
+            return;
         _committedSnapshot = nameU64;
+        auto insResult = _snapshotMap.insert(SnapshotMap::value_type(nameU64, nullptr));
+        if (insResult.second) {
+            insResult.first->second = std::make_shared<SnapshotHolder>(_db, _db->GetSnapshot(), nameU64);
+        }
+        _committedSnapshotIter = insResult.first;
     }
 
     void RocksSnapshotManager::cleanupUnneededSnapshots() {
         stdx::lock_guard<stdx::mutex> lock(_mutex);
-        if (!_committedSnapshot) {
+        if (!_updatedCommittedSnapshot) {
             return;
         }
 
-        auto it = _snapshots.begin();
-        for (; it != _snapshots.end() && *it != _committedSnapshot; it++) {
-            auto snapshotHolder = _snapshotMap.find(*it);
-            // _snapshots and _snapshotMap have to have the same snapshots
-            invariant(snapshotHolder != _snapshotMap.end());
-            _snapshotMap.erase(snapshotHolder);
-        }
-        invariant(it != _snapshots.end());
-        _snapshots.erase(_snapshots.begin(), it);
+        // erasing snapshots with timestamps less than *_committedSnapshot
+        _snapshotMap.erase(_snapshotMap.begin(), _committedSnapshotIter);
+        _updatedCommittedSnapshot = false;
     }
 
     void RocksSnapshotManager::dropAllSnapshots() {
         stdx::lock_guard<stdx::mutex> lock(_mutex);
         _committedSnapshot = boost::none;
+        _updatedCommittedSnapshot = false;
+        _committedSnapshotIter = SnapshotMap::iterator{};
         _snapshotMap.clear();
-        _snapshots.clear();
     }
 
     bool RocksSnapshotManager::haveCommittedSnapshot() const {
@@ -89,14 +92,20 @@ namespace mongo {
         uassert(ErrorCodes::ReadConcernMajorityNotAvailableYet,
                 "Committed view disappeared while running operation", _committedSnapshot);
 
-        return _snapshotMap.at(*_committedSnapshot);
+        return _committedSnapshotIter->second;
     }
 
-    RocksSnapshotManager::SnapshotHolder::SnapshotHolder(OperationContext* opCtx, uint64_t name_) {
+    void RocksSnapshotManager::insertSnapshot(const Timestamp timestamp) {
+        auto snapshot = _db->GetSnapshot();
+        uint64_t nameU64 = timestamp.asULL();
+        stdx::lock_guard<stdx::mutex> lock(_mutex);
+        _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(_db, snapshot, nameU64);
+    }
+
+    RocksSnapshotManager::SnapshotHolder::SnapshotHolder(rocksdb::DB* db_, const rocksdb::Snapshot* snapshot_, uint64_t name_) {
         name = name_;
-        auto rru = RocksRecoveryUnit::getRocksRecoveryUnit(opCtx);
-        snapshot = rru->getPreparedSnapshot();
-        db = rru->getDB();
+        db = db_;
+        snapshot = snapshot_;
     }
 
     RocksSnapshotManager::SnapshotHolder::~SnapshotHolder() {

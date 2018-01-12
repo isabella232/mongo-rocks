@@ -108,6 +108,8 @@ namespace mongo {
 
         virtual SnapshotId getSnapshotId() const;
 
+        Status setTimestamp(Timestamp timestamp) override;
+
         // local api
 
         rocksdb::WriteBatchWithIndex* writeBatch();
@@ -207,6 +209,8 @@ namespace mongo {
 
         bool _readFromMajorityCommittedSnapshot = false;
         bool _areWriteUnitOfWorksBanned = false;
+        bool _isTimestamped = false;
+        Timestamp _futureWritesTimestamp;
     };
 
 }

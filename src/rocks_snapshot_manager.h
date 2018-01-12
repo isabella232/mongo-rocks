@@ -26,7 +26,7 @@
  *    it in the license file.
  */
 
-#include <forward_list>
+#include <map>
 
 #include <rocksdb/db.h>
 
@@ -49,11 +49,11 @@ public:
         uint64_t name;
         const rocksdb::Snapshot* snapshot;
         rocksdb::DB* db;
-        SnapshotHolder(OperationContext* opCtx, uint64_t name_);
+        SnapshotHolder(rocksdb::DB* db_, const rocksdb::Snapshot* snapshot_, uint64_t name_);
         ~SnapshotHolder();
     };
 
-    RocksSnapshotManager() {}
+    RocksSnapshotManager(rocksdb::DB* db) : _db(db) {}
 
     ~RocksSnapshotManager() {
         dropAllSnapshots();
@@ -72,11 +72,17 @@ public:
 
     std::shared_ptr<RocksSnapshotManager::SnapshotHolder> getCommittedSnapshot() const;
 
+    void insertSnapshot(const Timestamp timestamp);
+
 private:
-    std::vector<uint64_t> _snapshots;  // sorted
-    std::unordered_map<uint64_t, std::shared_ptr<SnapshotHolder>> _snapshotMap;
+    typedef std::map<uint64_t, std::shared_ptr<SnapshotHolder>> SnapshotMap;
+
+    SnapshotMap _snapshotMap;
     boost::optional<uint64_t> _committedSnapshot;
+    SnapshotMap::iterator _committedSnapshotIter; // Cached iterator to current committed snapshot
 
     mutable stdx::mutex _mutex;  // Guards all members
+    rocksdb::DB* _db = nullptr;  // not owned
+    bool _updatedCommittedSnapshot = false;
 };
 } // namespace mongo

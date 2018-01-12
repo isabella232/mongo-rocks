@@ -226,6 +226,7 @@ namespace mongo {
           _preparedSnapshot(nullptr),
           _mySnapshotId(nextSnapshotId.fetchAndAdd(1)) {
         RocksRecoveryUnit::_totalLiveRecoveryUnits.fetch_add(1, std::memory_order_relaxed);
+        _snapshotManager->cleanupUnneededSnapshots();
     }
 
     RocksRecoveryUnit::~RocksRecoveryUnit() {
@@ -300,6 +301,14 @@ namespace mongo {
 
     SnapshotId RocksRecoveryUnit::getSnapshotId() const { return SnapshotId(_mySnapshotId); }
 
+    Status RocksRecoveryUnit::setTimestamp(Timestamp timestamp) {
+        if (timestamp != Timestamp::min()) {
+            _futureWritesTimestamp = timestamp;
+            _isTimestamped = true;
+        }
+        return Status::OK();
+    }
+
     void RocksRecoveryUnit::_releaseSnapshot() {
         if (_timer) {
             const int transactionTime = _timer->millis();
@@ -351,6 +360,10 @@ namespace mongo {
         }
         _deltaCounters.clear();
         _writeBatch.Clear();
+        if (_isTimestamped) {
+            _snapshotManager->insertSnapshot(_futureWritesTimestamp);
+            _isTimestamped = false;
+        }
     }
 
     void RocksRecoveryUnit::_abort() {
