@@ -434,7 +434,6 @@ namespace mongo {
         }
         _durabilityManager.reset();
         _snapshotManager->dropAllSnapshots();
-        _snapshotManager.reset();
         _counterManager->sync();
         _counterManager.reset();
         _compactionScheduler.reset();
