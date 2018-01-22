@@ -77,6 +77,7 @@ namespace mongo {
         _committedSnapshot = boost::none;
         _updatedCommittedSnapshot = false;
         _committedSnapshotIter = SnapshotMap::iterator{};
+        _maxSeenSnapshot = 0;
         _snapshotMap.clear();
     }
 
@@ -103,8 +104,21 @@ namespace mongo {
     void RocksSnapshotManager::insertSnapshot(const Timestamp timestamp) {
         auto snapshot = _db->GetSnapshot();
         uint64_t nameU64 = timestamp.asULL();
+        SnapshotMap::iterator it;
+
         stdx::lock_guard<stdx::mutex> lock(_mutex);
-        _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(_db, snapshot);
+        std::tie(it, std::ignore) = _snapshotMap.insert(SnapshotMap::value_type(nameU64, nullptr));
+        auto holder = std::make_shared<SnapshotHolder>(_db, snapshot);
+
+        if (_snapshotMap.size() > 1 && nameU64 < _maxSeenSnapshot) {
+            // Timestamps came out of order, so use the freshest one
+            for (auto it_end = _snapshotMap.end(); it != it_end; ++it) {
+                it->second = holder;
+            }
+        } else {
+            it->second = std::move(holder);
+            _maxSeenSnapshot = nameU64;
+        }
     }
 
     void RocksSnapshotManager::assertCommittedSnapshot_inlock() const {
