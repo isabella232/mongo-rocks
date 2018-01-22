@@ -56,7 +56,7 @@ namespace mongo {
         _committedSnapshot = nameU64;
         auto insResult = _snapshotMap.insert(SnapshotMap::value_type(nameU64, nullptr));
         if (insResult.second) {
-            insResult.first->second = std::make_shared<SnapshotHolder>(_db, _db->GetSnapshot(), nameU64);
+            insResult.first->second = std::make_shared<SnapshotHolder>(_db, _db->GetSnapshot());
         }
         _committedSnapshotIter = insResult.first;
     }
@@ -85,13 +85,18 @@ namespace mongo {
         return bool(_committedSnapshot);
     }
 
+    uint64_t RocksSnapshotManager::getCommittedSnapshotName() const {
+        stdx::lock_guard<stdx::mutex> lock(_mutex);
+
+        assertCommittedSnapshot_inlock();
+        return *_committedSnapshot;
+    }
+
     std::shared_ptr<RocksSnapshotManager::SnapshotHolder>
     RocksSnapshotManager::getCommittedSnapshot() const {
         stdx::lock_guard<stdx::mutex> lock(_mutex);
 
-        uassert(ErrorCodes::ReadConcernMajorityNotAvailableYet,
-                "Committed view disappeared while running operation", _committedSnapshot);
-
+        assertCommittedSnapshot_inlock();
         return _committedSnapshotIter->second;
     }
 
@@ -99,11 +104,16 @@ namespace mongo {
         auto snapshot = _db->GetSnapshot();
         uint64_t nameU64 = timestamp.asULL();
         stdx::lock_guard<stdx::mutex> lock(_mutex);
-        _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(_db, snapshot, nameU64);
+        _snapshotMap[nameU64] = std::make_shared<SnapshotHolder>(_db, snapshot);
     }
 
-    RocksSnapshotManager::SnapshotHolder::SnapshotHolder(rocksdb::DB* db_, const rocksdb::Snapshot* snapshot_, uint64_t name_) {
-        name = name_;
+    void RocksSnapshotManager::assertCommittedSnapshot_inlock() const {
+        uassert(ErrorCodes::ReadConcernMajorityNotAvailableYet,
+                "Committed view disappeared while running operation", _committedSnapshot);
+    }
+
+    RocksSnapshotManager::SnapshotHolder::SnapshotHolder(rocksdb::DB* db_,
+                                                         const rocksdb::Snapshot* snapshot_) {
         db = db_;
         snapshot = snapshot_;
     }

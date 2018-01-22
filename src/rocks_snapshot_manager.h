@@ -46,10 +46,10 @@ class RocksSnapshotManager final : public SnapshotManager {
 
 public:
     struct SnapshotHolder {
-        uint64_t name;
-        const rocksdb::Snapshot* snapshot;
         rocksdb::DB* db;
-        SnapshotHolder(rocksdb::DB* db_, const rocksdb::Snapshot* snapshot_, uint64_t name_);
+        const rocksdb::Snapshot* snapshot;
+
+        SnapshotHolder(rocksdb::DB* db_, const rocksdb::Snapshot* snapshot_);
         ~SnapshotHolder();
     };
 
@@ -70,11 +70,14 @@ public:
 
     bool haveCommittedSnapshot() const;
 
+    uint64_t getCommittedSnapshotName() const;
     std::shared_ptr<RocksSnapshotManager::SnapshotHolder> getCommittedSnapshot() const;
 
     void insertSnapshot(const Timestamp timestamp);
 
 private:
+    void assertCommittedSnapshot_inlock() const;
+
     typedef std::map<uint64_t, std::shared_ptr<SnapshotHolder>> SnapshotMap;
 
     SnapshotMap _snapshotMap;

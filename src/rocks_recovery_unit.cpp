@@ -296,7 +296,7 @@ namespace mongo {
     boost::optional<Timestamp> RocksRecoveryUnit::getMajorityCommittedSnapshot() const {
         if (!_readFromMajorityCommittedSnapshot)
             return {};
-        return Timestamp(_snapshotManager->getCommittedSnapshot().get()->name);
+        return Timestamp(_snapshotManager->getCommittedSnapshotName());
     }
 
     SnapshotId RocksRecoveryUnit::getSnapshotId() const { return SnapshotId(_mySnapshotId); }
