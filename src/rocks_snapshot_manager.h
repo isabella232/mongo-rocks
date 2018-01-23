@@ -45,13 +45,7 @@ class RocksSnapshotManager final : public SnapshotManager {
     MONGO_DISALLOW_COPYING(RocksSnapshotManager);
 
 public:
-    struct SnapshotHolder {
-        rocksdb::DB* db;
-        const rocksdb::Snapshot* snapshot;
-
-        SnapshotHolder(rocksdb::DB* db_, const rocksdb::Snapshot* snapshot_);
-        ~SnapshotHolder();
-    };
+    typedef std::shared_ptr<const rocksdb::Snapshot> SnapshotHolder;
 
     RocksSnapshotManager(rocksdb::DB* db) : _db(db) {}
 
@@ -71,14 +65,15 @@ public:
     bool haveCommittedSnapshot() const;
 
     uint64_t getCommittedSnapshotName() const;
-    std::shared_ptr<RocksSnapshotManager::SnapshotHolder> getCommittedSnapshot() const;
+    RocksSnapshotManager::SnapshotHolder getCommittedSnapshot() const;
 
     void insertSnapshot(const Timestamp timestamp);
 
 private:
     void assertCommittedSnapshot_inlock() const;
+    SnapshotHolder createSnapshot();
 
-    typedef std::map<uint64_t, std::shared_ptr<SnapshotHolder>> SnapshotMap;
+    typedef std::map<uint64_t, SnapshotHolder> SnapshotMap;
 
     SnapshotMap _snapshotMap;
     boost::optional<uint64_t> _committedSnapshot;

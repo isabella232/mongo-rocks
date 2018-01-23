@@ -406,7 +406,7 @@ namespace mongo {
             if (_snapshotHolder.get() == nullptr) {
                 _snapshotHolder = _snapshotManager->getCommittedSnapshot();
             }
-            return _snapshotHolder->snapshot;
+            return _snapshotHolder.get();
         }
         if (!_snapshot) {
             // RecoveryUnit might be used for writing, so we need to call recordSnapshotId().

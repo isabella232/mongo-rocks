@@ -56,7 +56,7 @@ namespace mongo {
         _committedSnapshot = nameU64;
         auto insResult = _snapshotMap.insert(SnapshotMap::value_type(nameU64, nullptr));
         if (insResult.second) {
-            insResult.first->second = std::make_shared<SnapshotHolder>(_db, _db->GetSnapshot());
+            insResult.first->second = createSnapshot();
         }
         _committedSnapshotIter = insResult.first;
     }
@@ -93,8 +93,7 @@ namespace mongo {
         return *_committedSnapshot;
     }
 
-    std::shared_ptr<RocksSnapshotManager::SnapshotHolder>
-    RocksSnapshotManager::getCommittedSnapshot() const {
+    RocksSnapshotManager::SnapshotHolder RocksSnapshotManager::getCommittedSnapshot() const {
         stdx::lock_guard<stdx::mutex> lock(_mutex);
 
         assertCommittedSnapshot_inlock();
@@ -102,13 +101,12 @@ namespace mongo {
     }
 
     void RocksSnapshotManager::insertSnapshot(const Timestamp timestamp) {
-        auto snapshot = _db->GetSnapshot();
         uint64_t nameU64 = timestamp.asULL();
+        auto holder = createSnapshot();
         SnapshotMap::iterator it;
 
         stdx::lock_guard<stdx::mutex> lock(_mutex);
         std::tie(it, std::ignore) = _snapshotMap.insert(SnapshotMap::value_type(nameU64, nullptr));
-        auto holder = std::make_shared<SnapshotHolder>(_db, snapshot);
 
         if (_snapshotMap.size() > 1 && nameU64 < _maxSeenSnapshot) {
             // Timestamps came out of order, so use the freshest one
@@ -126,17 +124,14 @@ namespace mongo {
                 "Committed view disappeared while running operation", _committedSnapshot);
     }
 
-    RocksSnapshotManager::SnapshotHolder::SnapshotHolder(rocksdb::DB* db_,
-                                                         const rocksdb::Snapshot* snapshot_) {
-        db = db_;
-        snapshot = snapshot_;
-    }
-
-    RocksSnapshotManager::SnapshotHolder::~SnapshotHolder() {
-        if (snapshot != nullptr) {
-            invariant(db != nullptr);
-            db->ReleaseSnapshot(snapshot);
-        }
+    RocksSnapshotManager::SnapshotHolder RocksSnapshotManager::createSnapshot() {
+        auto db = this->_db;
+        return SnapshotHolder(db->GetSnapshot(), [db](const rocksdb::Snapshot* snapshot) {
+            if (snapshot != nullptr) {
+                invariant(db != nullptr);
+                db->ReleaseSnapshot(snapshot);
+            }
+        });
     }
 
 }  // namespace mongo
