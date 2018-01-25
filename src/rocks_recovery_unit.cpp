@@ -296,7 +296,7 @@ namespace mongo {
     boost::optional<Timestamp> RocksRecoveryUnit::getMajorityCommittedSnapshot() const {
         if (!_readFromMajorityCommittedSnapshot)
             return {};
-        return Timestamp(_snapshotManager->getCommittedSnapshot().get()->name);
+        return Timestamp(_snapshotManager->getCommittedSnapshotName());
     }
 
     SnapshotId RocksRecoveryUnit::getSnapshotId() const { return SnapshotId(_mySnapshotId); }
@@ -406,7 +406,7 @@ namespace mongo {
             if (_snapshotHolder.get() == nullptr) {
                 _snapshotHolder = _snapshotManager->getCommittedSnapshot();
             }
-            return _snapshotHolder->snapshot;
+            return _snapshotHolder.get();
         }
         if (!_snapshot) {
             // RecoveryUnit might be used for writing, so we need to call recordSnapshotId().

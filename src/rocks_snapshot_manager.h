@@ -45,13 +45,7 @@ class RocksSnapshotManager final : public SnapshotManager {
     MONGO_DISALLOW_COPYING(RocksSnapshotManager);
 
 public:
-    struct SnapshotHolder {
-        uint64_t name;
-        const rocksdb::Snapshot* snapshot;
-        rocksdb::DB* db;
-        SnapshotHolder(rocksdb::DB* db_, const rocksdb::Snapshot* snapshot_, uint64_t name_);
-        ~SnapshotHolder();
-    };
+    typedef std::shared_ptr<const rocksdb::Snapshot> SnapshotHolder;
 
     RocksSnapshotManager(rocksdb::DB* db) : _db(db) {}
 
@@ -70,16 +64,21 @@ public:
 
     bool haveCommittedSnapshot() const;
 
-    std::shared_ptr<RocksSnapshotManager::SnapshotHolder> getCommittedSnapshot() const;
+    uint64_t getCommittedSnapshotName() const;
+    RocksSnapshotManager::SnapshotHolder getCommittedSnapshot() const;
 
     void insertSnapshot(const Timestamp timestamp);
 
 private:
-    typedef std::map<uint64_t, std::shared_ptr<SnapshotHolder>> SnapshotMap;
+    void assertCommittedSnapshot_inlock() const;
+    SnapshotHolder createSnapshot();
+
+    typedef std::map<uint64_t, SnapshotHolder> SnapshotMap;
 
     SnapshotMap _snapshotMap;
     boost::optional<uint64_t> _committedSnapshot;
     SnapshotMap::iterator _committedSnapshotIter; // Cached iterator to current committed snapshot
+    uint64_t _maxSeenSnapshot = 0;
 
     mutable stdx::mutex _mutex;  // Guards all members
     rocksdb::DB* _db = nullptr;  // not owned
