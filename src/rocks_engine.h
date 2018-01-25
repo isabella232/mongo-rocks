@@ -132,7 +132,7 @@ namespace mongo {
         virtual void cleanShutdown();
 
         virtual SnapshotManager* getSnapshotManager() const final {
-            return (SnapshotManager*) _snapshotManager.get();
+            return (SnapshotManager*) nullptr;
         }
 
         /**
