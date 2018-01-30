@@ -69,6 +69,12 @@ public:
 
     void insertSnapshot(const Timestamp timestamp);
 
+    void opStarted(RocksRecoveryUnit* ru, const Timestamp& timestamp);
+    void opAborted(RocksRecoveryUnit* ru);
+    void opCommitted_inlock();
+    stdx::mutex& getCOMutex() const;
+    bool canCommit_inlock(RocksRecoveryUnit* ru) const;
+
 private:
     void assertCommittedSnapshot_inlock() const;
     SnapshotHolder createSnapshot();
@@ -83,5 +89,8 @@ private:
     mutable stdx::mutex _mutex;  // Guards all members
     rocksdb::DB* _db = nullptr;  // not owned
     bool _updatedCommittedSnapshot = false;
+
+    mutable stdx::mutex _co_mutex;  // Guards _commitOrder map
+    std::map<uint64_t, RocksRecoveryUnit*> _commitOrder;
 };
 } // namespace mongo

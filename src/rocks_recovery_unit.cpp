@@ -205,6 +205,29 @@ namespace mongo {
 
     }  // anonymous namespace
 
+    class RocksRecoveryUnit::CommitOrderGuard {
+    public:
+        CommitOrderGuard(RocksRecoveryUnit* ru)
+            : _ru(ru),
+              _sm(_ru->_snapshotManager) {
+            if (_ru->_isTimestamped) {
+                _lock = stdx::unique_lock<stdx::mutex>(_sm->getCOMutex());
+                _ru->_canCommit.wait(_lock, [this] {return _sm->canCommit_inlock(_ru);});
+            }
+        }
+        ~CommitOrderGuard() {
+            if (_lock.owns_lock()) {
+                invariant(_sm->canCommit_inlock(_ru));
+                _sm->opCommitted_inlock();
+            }
+        }
+
+    private:
+        RocksRecoveryUnit* _ru;
+        RocksSnapshotManager* _sm;
+        stdx::unique_lock<stdx::mutex> _lock;
+    };
+
     std::atomic<int> RocksRecoveryUnit::_totalLiveRecoveryUnits(0);
 
     RocksRecoveryUnit::RocksRecoveryUnit(RocksTransactionEngine* transactionEngine,
@@ -303,8 +326,12 @@ namespace mongo {
 
     Status RocksRecoveryUnit::setTimestamp(Timestamp timestamp) {
         if (timestamp != Timestamp::min()) {
-            _futureWritesTimestamp = timestamp;
-            _isTimestamped = true;
+            // only update if we have new timestamp
+            if (!_isTimestamped || timestamp > _futureWritesTimestamp) {
+                _snapshotManager->opStarted(this, timestamp);
+                _futureWritesTimestamp = timestamp;
+                _isTimestamped = true;
+            }
         }
         return Status::OK();
     }
@@ -341,6 +368,8 @@ namespace mongo {
     }
 
     void RocksRecoveryUnit::_commit() {
+        CommitOrderGuard cog(this);
+
         rocksdb::WriteBatch* wb = _writeBatch.GetWriteBatch();
         for (auto pair : _deltaCounters) {
             auto& counter = pair.second;
@@ -367,6 +396,8 @@ namespace mongo {
     }
 
     void RocksRecoveryUnit::_abort() {
+        _snapshotManager->opAborted(this);
+        _isTimestamped = false;
         try {
             for (Changes::const_reverse_iterator it = _changes.rbegin(), end = _changes.rend();
                     it != end; ++it) {
@@ -487,5 +518,9 @@ namespace mongo {
 
     RocksRecoveryUnit* RocksRecoveryUnit::getRocksRecoveryUnit(OperationContext* opCtx) {
         return checked_cast<RocksRecoveryUnit*>(opCtx->recoveryUnit());
+    }
+
+    void RocksRecoveryUnit::_allowCommit() {
+        _canCommit.notify_one();
     }
 }

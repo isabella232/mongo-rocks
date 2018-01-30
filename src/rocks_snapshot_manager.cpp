@@ -134,4 +134,40 @@ namespace mongo {
         });
     }
 
+    void RocksSnapshotManager::opStarted(RocksRecoveryUnit* ru, const Timestamp& timestamp) {
+        stdx::lock_guard<stdx::mutex> lock(_co_mutex);
+        if (ru->_isTimestamped) {
+            _commitOrder.erase(ru->_futureWritesTimestamp.asULL());
+        }
+        _commitOrder[timestamp.asULL()] = ru;
+    }
+
+    void RocksSnapshotManager::opAborted(RocksRecoveryUnit* ru){
+        if (!ru->_isTimestamped)
+            return;
+        stdx::lock_guard<stdx::mutex> lock(_co_mutex);
+        auto it = _commitOrder.find(ru->_futureWritesTimestamp.asULL());
+        invariant(it != _commitOrder.end());
+        auto next = _commitOrder.erase(it);
+        if (next != _commitOrder.end() && next == _commitOrder.begin()){
+            next->second->_allowCommit();
+        }
+    }
+
+    void RocksSnapshotManager::opCommitted_inlock(){
+        auto next = _commitOrder.erase(_commitOrder.begin());
+        if (next != _commitOrder.end()) {
+            next->second->_allowCommit();
+        }
+    }
+
+    stdx::mutex& RocksSnapshotManager::getCOMutex() const {
+        return _co_mutex;
+    }
+
+    bool RocksSnapshotManager::canCommit_inlock(RocksRecoveryUnit* ru) const {
+        invariant(_commitOrder.size() > 0);
+        return _commitOrder.begin()->second == ru;
+    }
+
 }  // namespace mongo

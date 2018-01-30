@@ -166,6 +166,13 @@ namespace mongo {
         rocksdb::DB* getDB() const { return _db; }
 
     private:
+        friend class RocksSnapshotManager;
+
+        class CommitOrderGuard;
+        friend class CommitOrderGuard;
+
+        void _allowCommit();
+
         void _releaseSnapshot();
 
         void _commit();
@@ -211,6 +218,9 @@ namespace mongo {
         bool _areWriteUnitOfWorksBanned = false;
         bool _isTimestamped = false;
         Timestamp _futureWritesTimestamp;
+
+        // signaled when this recovery unit is the first in the order of commit timestamps
+        stdx::condition_variable _canCommit;
     };
 
 }
