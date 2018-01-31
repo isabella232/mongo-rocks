@@ -84,7 +84,6 @@ private:
     SnapshotMap _snapshotMap;
     boost::optional<uint64_t> _committedSnapshot;
     SnapshotMap::iterator _committedSnapshotIter; // Cached iterator to current committed snapshot
-    uint64_t _maxSeenSnapshot = 0;
 
     mutable stdx::mutex _mutex;  // Guards all members
     rocksdb::DB* _db = nullptr;  // not owned
