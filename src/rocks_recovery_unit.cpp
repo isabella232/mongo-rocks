@@ -404,7 +404,13 @@ namespace mongo {
 
         if (_readFromMajorityCommittedSnapshot) {
             if (_snapshotHolder.get() == nullptr) {
-                _snapshotHolder = _snapshotManager->getCommittedSnapshot();
+                const auto& holder = _snapshotManager->getCommittedSnapshot();
+                _snapshotHolder = holder.snapshot;
+                if (holder.inaccurate) {
+                    warning()
+                        << Timestamp(_snapshotManager->getCommittedSnapshotName()).toString()
+                        << " may not represent the relevant database state for majority reads!";
+                }
             }
             return _snapshotHolder.get();
         }
