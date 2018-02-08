@@ -205,7 +205,7 @@ namespace mongo {
 
         // If we read from a committed snapshot, then ownership of the snapshot
         // should be shared here to ensure that it is not released early
-        RocksSnapshotManager::SnapshotHolder _snapshotHolder;
+        RocksSnapshotManager::SnapshotHolder::Snapshot _snapshotHolder;
 
         bool _readFromMajorityCommittedSnapshot = false;
         bool _areWriteUnitOfWorksBanned = false;

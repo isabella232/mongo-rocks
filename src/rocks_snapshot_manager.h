@@ -45,7 +45,12 @@ class RocksSnapshotManager final : public SnapshotManager {
     MONGO_DISALLOW_COPYING(RocksSnapshotManager);
 
 public:
-    typedef std::shared_ptr<const rocksdb::Snapshot> SnapshotHolder;
+    struct SnapshotHolder {
+        typedef std::shared_ptr<const rocksdb::Snapshot> Snapshot;
+
+        Snapshot snapshot;
+        bool inaccurate = false;
+    };
 
     RocksSnapshotManager(rocksdb::DB* db) : _db(db) {}
 

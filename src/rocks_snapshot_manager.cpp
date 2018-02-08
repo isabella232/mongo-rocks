@@ -54,7 +54,7 @@ namespace mongo {
         if (!_updatedCommittedSnapshot)
             return;
         _committedSnapshot = nameU64;
-        auto insResult = _snapshotMap.insert(SnapshotMap::value_type(nameU64, nullptr));
+        auto insResult = _snapshotMap.insert(SnapshotMap::value_type(nameU64, {}));
         if (insResult.second) {
             insResult.first->second = createSnapshot();
         }
@@ -106,13 +106,16 @@ namespace mongo {
         SnapshotMap::iterator it;
 
         stdx::lock_guard<stdx::mutex> lock(_mutex);
-        std::tie(it, std::ignore) = _snapshotMap.insert(SnapshotMap::value_type(nameU64, nullptr));
+        std::tie(it, std::ignore) = _snapshotMap.insert(SnapshotMap::value_type(nameU64, {}));
 
         if (_snapshotMap.size() > 1 && nameU64 < _maxSeenSnapshot) {
+            holder.inaccurate = true;
             // Timestamps came out of order, so use the freshest one
             for (auto it_end = _snapshotMap.end(); it != it_end; ++it) {
                 it->second = holder;
             }
+            // The most recent timestamp is accurate
+            _snapshotMap.rbegin()->second.inaccurate = false;
         } else {
             it->second = std::move(holder);
             _maxSeenSnapshot = nameU64;
@@ -126,12 +129,14 @@ namespace mongo {
 
     RocksSnapshotManager::SnapshotHolder RocksSnapshotManager::createSnapshot() {
         auto db = this->_db;
-        return SnapshotHolder(db->GetSnapshot(), [db](const rocksdb::Snapshot* snapshot) {
-            if (snapshot != nullptr) {
-                invariant(db != nullptr);
-                db->ReleaseSnapshot(snapshot);
-            }
-        });
+        return {SnapshotHolder::Snapshot(db->GetSnapshot(),
+                                         [db](const rocksdb::Snapshot* snapshot) {
+                                             if (snapshot != nullptr) {
+                                                 invariant(db != nullptr);
+                                                 db->ReleaseSnapshot(snapshot);
+                                             }
+                                         }),
+                false};
     }
 
 }  // namespace mongo
