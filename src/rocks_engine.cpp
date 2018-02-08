@@ -401,10 +401,7 @@ namespace mongo {
             prefixesToDrop.push_back(rocksGetNextPrefix(prefixesToDrop[0]));
         }
 
-        // we need to make sure this is on disk before starting to delete data in compactions
-        rocksdb::WriteOptions syncOptions;
-        syncOptions.sync = true;
-        auto s = _compactionScheduler->dropPrefixesAtomic(prefixesToDrop, syncOptions, wb);
+        auto s = _compactionScheduler->dropPrefixesAtomic(prefixesToDrop, rocksdb::WriteOptions(), wb);
 
         if (s.isOK()) {
             // remove from map

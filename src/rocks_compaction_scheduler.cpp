@@ -428,9 +428,7 @@ namespace mongo {
             _droppedPrefixes.erase(int_prefix);
         }
         if (opSucceeded) {
-            rocksdb::WriteOptions syncOptions;
-            syncOptions.sync = true;
-            _db->Delete(syncOptions, kDroppedPrefix + prefix);
+            _db->Delete(rocksdb::WriteOptions(), kDroppedPrefix + prefix);
 
             // This operation only happens from one thread, so no concurrent
             // updates are possible.
