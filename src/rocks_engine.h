@@ -118,6 +118,8 @@ namespace mongo {
 
         virtual Status hotBackup(const std::string& path);
 
+        virtual bool isFcv36Supported() const override { return false; }
+
         virtual bool isDurable() const override { return _durable; }
 
         virtual bool isEphemeral() const override { return false; }
