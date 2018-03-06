@@ -125,6 +125,7 @@ namespace mongo {
     }
 
     void RocksGlobalOptions::printOptions() const {
+        log() << "[RocksDB] WARNING: MongoRocks is deprecated and will be removed in the next major version.";
         log() << "[RocksDB] Block Cache Size GB: " << rocksGlobalOptions.cacheSizeGB;
         log() << "[RocksDB] Compression: " << redact(rocksGlobalOptions.compression);
         log() << "[RocksDB] MaxWriteMBPerSec: " << rocksGlobalOptions.maxWriteMBPerSec;
