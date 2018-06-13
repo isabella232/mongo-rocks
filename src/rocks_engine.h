@@ -147,6 +147,12 @@ namespace mongo {
 
         virtual void setJournalListener(JournalListener* jl);
 
+        virtual Timestamp getAllCommittedTimestamp(OperationContext* opCtx) const override{
+            // in fact it could be reachable from _logOpsInner
+            // to avoid this we added additional check there (based on isFcv36Supported)
+            MONGO_UNREACHABLE;
+        }
+
         // rocks specific api
 
         rocksdb::DB* getDB() { return _db.get(); }
