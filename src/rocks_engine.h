@@ -116,7 +116,7 @@ namespace mongo {
 
         virtual void endBackup(OperationContext* opCtx) override;
 
-        virtual Status hotBackup(const std::string& path);
+        virtual Status hotBackup(OperationContext* opCtx, const std::string& path) override;
 
         virtual bool isFcv36Supported() const override { return false; }
 

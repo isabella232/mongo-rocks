@@ -480,7 +480,7 @@ namespace mongo {
         _rateLimiter->SetBytesPerSecond(static_cast<int64_t>(_maxWriteMBPerSec) * 1024 * 1024);
     }
 
-    Status RocksEngine::hotBackup(const std::string& path) {
+    Status RocksEngine::hotBackup(OperationContext* opCtx, const std::string& path) {
         // Our files are in db/ directory to avoid collision with Mongo's files
         return backup(path + "/db");
     }
