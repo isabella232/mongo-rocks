@@ -36,6 +36,8 @@
 #include <algorithm>
 #include <mutex>
 
+#include <boost/filesystem.hpp>
+
 #include <rocksdb/version.h>
 #include <rocksdb/cache.h>
 #include <rocksdb/compaction_filter.h>
@@ -481,6 +483,16 @@ namespace mongo {
     }
 
     Status RocksEngine::hotBackup(OperationContext* opCtx, const std::string& path) {
+        // Copy storage engine metadata.
+        namespace fs = boost::filesystem;
+        try {
+            const char* storageMetadata{"storage.bson"};
+            fs::path srcPath{mongo::storageGlobalParams.dbpath};
+            fs::path destPath{path};
+            fs::copy_file(srcPath / storageMetadata, destPath / storageMetadata, fs::copy_option::none);
+        } catch (const fs::filesystem_error& ex) {
+            return Status(ErrorCodes::InvalidPath, str::stream() << "Cannot copy storage engine metadata: " << ex.what());
+        }
         // Our files are in db/ directory to avoid collision with Mongo's files
         return backup(path + "/db");
     }
